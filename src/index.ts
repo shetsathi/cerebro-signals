@@ -9,6 +9,15 @@ export { MTFSnapshot, TimeframeAvailability, TimeframeState } from './domain/mtf
 export { MTFCalculator } from './domain/mtf-calculator';
 export { NoLookAheadValidator, LookAheadViolation } from './domain/no-look-ahead-validator';
 
+// Structure Engine exports (Part 3)
+export { StructureConfig } from './domain/structure-config';
+export { SwingPoint, SwingType, SwingPointComparator } from './domain/swing-point';
+export { StructureState, StructureType } from './domain/structure-state';
+export { SwingDetector } from './domain/swing-detector';
+export { StructureCalculator, SwingClassification } from './domain/structure-calculator';
+export { StructureSnapshot, BOSEvent, CHOCHEvent } from './domain/structure-snapshot';
+export { StructureEngine } from './domain/structure-engine';
+
 // Persistence exports
 export { CandleRepository } from './persistence/candle-repository.interface';
 export { SupabaseCandleRepository } from './persistence/supabase-candle-repository';
