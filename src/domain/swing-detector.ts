@@ -115,9 +115,4 @@ export class SwingDetector {
       candidate.openTimeUTC,
     );
   }
-
-  static isSwingConfirmed(swing: SwingPoint, rightBarsCount: number): boolean {
-    // A swing is confirmed when rightBars have closed after the candidate
-    return rightBarsCount >= rightBarsCount;
-  }
 }
