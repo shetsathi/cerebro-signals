@@ -79,7 +79,7 @@ describe('NoLookAheadValidator', () => {
     });
   });
 
-  describe('Invalid Snapshots (Manual Construction)', () => {
+  describe('Invalid Snapshots (Unsealed for Testing)', () => {
     it('should detect candle with future knowledgeTime', () => {
       const futureCandle = new Candle(
         'RELIANCE',
@@ -92,17 +92,18 @@ describe('NoLookAheadValidator', () => {
       );
 
       const asOfTime = istTimeString('2026-08-21T09:20:00');
-      const snapshot = MTFCalculator.getMTFSnapshot([], asOfTime, 'RELIANCE');
 
-      // Manually add the future candle
-      snapshot.addTimeframeState({
+      // Create unsealed snapshot for testing
+      const { MTFSnapshot } = require('../domain/mtf-snapshot');
+      const testSnapshot = new MTFSnapshot(asOfTime);
+      testSnapshot.addTimeframeState({
         timeframe: Timeframe.from(TimeframeValue.FIVE_MIN),
         latestConfirmedCandle: futureCandle,
         knowledgeTime: futureCandle.knowledgeTimeUTC,
         availability: 'AVAILABLE' as any,
       });
 
-      const result = NoLookAheadValidator.validateSnapshot(snapshot);
+      const result = NoLookAheadValidator.validateSnapshot(testSnapshot);
 
       expect(result.valid).toBe(false);
       expect(result.violations).toHaveLength(1);
@@ -131,23 +132,26 @@ describe('NoLookAheadValidator', () => {
       );
 
       const asOfTime = istTimeString('2026-08-21T09:20:00');
-      const snapshot = MTFCalculator.getMTFSnapshot([], asOfTime, 'RELIANCE');
 
-      snapshot.addTimeframeState({
+      // Create unsealed snapshot for testing
+      const { MTFSnapshot } = require('../domain/mtf-snapshot');
+      const testSnapshot = new MTFSnapshot(asOfTime);
+
+      testSnapshot.addTimeframeState({
         timeframe: Timeframe.from(TimeframeValue.FIVE_MIN),
         latestConfirmedCandle: futureCandle5m,
         knowledgeTime: futureCandle5m.knowledgeTimeUTC,
         availability: 'AVAILABLE' as any,
       });
 
-      snapshot.addTimeframeState({
+      testSnapshot.addTimeframeState({
         timeframe: Timeframe.from(TimeframeValue.FIFTEEN_MIN),
         latestConfirmedCandle: futureCandle15m,
         knowledgeTime: futureCandle15m.knowledgeTimeUTC,
         availability: 'AVAILABLE' as any,
       });
 
-      const result = NoLookAheadValidator.validateSnapshot(snapshot);
+      const result = NoLookAheadValidator.validateSnapshot(testSnapshot);
 
       expect(result.valid).toBe(false);
       expect(result.violations).toHaveLength(2);
@@ -167,16 +171,19 @@ describe('NoLookAheadValidator', () => {
       );
 
       const asOfTime = istTimeString('2026-08-21T09:20:00');
-      const snapshot = MTFCalculator.getMTFSnapshot([], asOfTime, 'RELIANCE');
 
-      snapshot.addTimeframeState({
+      // Create unsealed snapshot for testing
+      const { MTFSnapshot } = require('../domain/mtf-snapshot');
+      const testSnapshot = new MTFSnapshot(asOfTime);
+
+      testSnapshot.addTimeframeState({
         timeframe: Timeframe.from(TimeframeValue.FIVE_MIN),
         latestConfirmedCandle: futureCandle,
         knowledgeTime: futureCandle.knowledgeTimeUTC,
         availability: 'AVAILABLE' as any,
       });
 
-      expect(() => NoLookAheadValidator.strictValidate(snapshot)).toThrow();
+      expect(() => NoLookAheadValidator.strictValidate(testSnapshot)).toThrow();
     });
 
     it('should not throw error on strict validation of valid snapshot', () => {
@@ -216,16 +223,18 @@ describe('NoLookAheadValidator', () => {
 
       const asOfTime = candleClose; // Same as candle close
 
-      const snapshot = MTFCalculator.getMTFSnapshot([], asOfTime, 'RELIANCE');
+      // Create unsealed snapshot for testing
+      const { MTFSnapshot } = require('../domain/mtf-snapshot');
+      const testSnapshot = new MTFSnapshot(asOfTime);
 
-      snapshot.addTimeframeState({
+      testSnapshot.addTimeframeState({
         timeframe: Timeframe.from(TimeframeValue.FIVE_MIN),
         latestConfirmedCandle: futureCandle,
         knowledgeTime: futureCandle.knowledgeTimeUTC,
         availability: 'AVAILABLE' as any,
       });
 
-      const result = NoLookAheadValidator.validateSnapshot(snapshot);
+      const result = NoLookAheadValidator.validateSnapshot(testSnapshot);
 
       expect(result.valid).toBe(false);
     });

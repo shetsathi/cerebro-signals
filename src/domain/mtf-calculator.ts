@@ -21,6 +21,9 @@ export class MTFCalculator {
       snapshot.addTimeframeState(state);
     }
 
+    // Seal the snapshot to prevent further modification
+    snapshot.seal();
+
     return snapshot;
   }
 

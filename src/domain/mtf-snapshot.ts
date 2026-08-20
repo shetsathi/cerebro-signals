@@ -16,15 +16,30 @@ export interface TimeframeState {
 
 export class MTFSnapshot {
   readonly asOfTimeUTC: Date;
-  private states: Map<string, TimeframeState> = new Map();
+  private readonly states: ReadonlyMap<string, TimeframeState>;
+  private sealed: boolean = false;
 
   constructor(asOfTimeUTC: Date) {
-    this.asOfTimeUTC = asOfTimeUTC;
+    // Defensive copy of the timestamp
+    this.asOfTimeUTC = new Date(asOfTimeUTC.getTime());
+    this.states = new Map();
   }
 
   addTimeframeState(state: TimeframeState): void {
+    if (this.sealed) {
+      throw new Error('Cannot add timeframe state to sealed snapshot');
+    }
     const key = state.timeframe.value;
-    this.states.set(key, state);
+    (this.states as Map<string, TimeframeState>).set(key, state);
+  }
+
+  seal(): void {
+    this.sealed = true;
+    Object.freeze(this.states);
+  }
+
+  isSealed(): boolean {
+    return this.sealed;
   }
 
   getTimeframeState(timeframeValue: TimeframeValue): TimeframeState | undefined {
