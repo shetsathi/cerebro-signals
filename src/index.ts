@@ -20,7 +20,7 @@ export { StructureEngine } from './domain/structure-engine';
 
 // Regime Engine exports (Part 4)
 export { RegimeType, RegimeClassification, TimeframeRegimeState } from './domain/regime-state';
-export { RegimeSnapshot, RegimeEvidence } from './domain/regime-snapshot';
+export { RegimeSnapshot, RegimeEvidence, StructuralDirectionState } from './domain/regime-snapshot';
 export { RegimeEvaluator } from './domain/regime-evaluator';
 export { RegimeStateMachine, RegimeTransition } from './domain/regime-state-machine';
 export { RegimeEngine } from './domain/regime-engine';

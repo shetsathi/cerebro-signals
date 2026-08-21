@@ -111,6 +111,12 @@ export class RegimeEngine {
       snapshot5m,
     );
 
+    // Evaluate structural direction for each timeframe
+    const struct1D = RegimeEvaluator.evaluateStructuralDirection(snapshot1D);
+    const struct60m = RegimeEvaluator.evaluateStructuralDirection(snapshot60m);
+    const struct15m = RegimeEvaluator.evaluateStructuralDirection(snapshot15m);
+    const struct5m = RegimeEvaluator.evaluateStructuralDirection(snapshot5m);
+
     // Create immutable snapshot
     const snapshot = new RegimeSnapshot(
       symbol,
@@ -121,6 +127,10 @@ export class RegimeEngine {
       regime15m,
       regime5m,
       nextRegime,
+      struct1D,
+      struct60m,
+      struct15m,
+      struct5m,
       transitionDetails,
       evidence1D,
       evidence60m,

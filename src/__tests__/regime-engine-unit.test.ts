@@ -60,19 +60,21 @@ describe('RegimeEvaluator', () => {
     expect(result.regime).toBe(RegimeType.TREND_BULLISH);
   });
 
-  it('should classify RANGE with HH+HL but no BOS', () => {
+  it('should classify INSUFFICIENT_DATA for HH+HL but no BOS', () => {
     const asOfTime = istTimeString('2026-08-21T10:00:00');
     const high1 = createSwing('NIFTY', SwingType.HIGH, 100, istTimeString('2026-08-21T09:00:00'), istTimeString('2026-08-21T09:10:00'));
     const low1 = createSwing('NIFTY', SwingType.LOW, 95, istTimeString('2026-08-21T09:05:00'), istTimeString('2026-08-21T09:15:00'));
     const high2 = createSwing('NIFTY', SwingType.HIGH, 105, istTimeString('2026-08-21T09:20:00'), istTimeString('2026-08-21T09:30:00'));
     const low2 = createSwing('NIFTY', SwingType.LOW, 98, istTimeString('2026-08-21T09:25:00'), istTimeString('2026-08-21T09:35:00'));
 
-    // No BOS events
+    // No BOS events - structure exists but trend not confirmed
     const structureState = new StructureState(StructureType.BULLISH, high2, low2, high1, low1);
     const snapshot = new StructureSnapshot(asOfTime, [high1, low1, high2, low2], structureState, [], []);
 
     const result = RegimeEvaluator.evaluateStructureRegime(snapshot, asOfTime);
-    expect(result.regime).toBe(RegimeType.RANGE);
+    // Changed: HH+HL without BOS is now INSUFFICIENT_DATA (directional structure without confirmation)
+    // not RANGE (which requires non-directional evidence)
+    expect(result.regime).toBe(RegimeType.INSUFFICIENT_DATA);
   });
 
   it('should classify TREND_BEARISH with LH+LL and bearish BOS', () => {

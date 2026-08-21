@@ -2,6 +2,7 @@ import { StructureSnapshot } from './structure-snapshot';
 import { StructureType } from './structure-state';
 import { RegimeType, RegimeClassification } from './regime-state';
 import { TimeframeValue } from './timeframe';
+import { StructuralDirectionState } from './regime-snapshot';
 
 export class RegimeEvaluator {
   static evaluateStructureRegime(
@@ -41,9 +42,11 @@ export class RegimeEvaluator {
         };
       }
 
+      // HH + HL without BOS: structure exists but trend not confirmed
+      // This is NOT automatically RANGE - it's directional structure awaiting confirmation
       return {
-        regime: RegimeType.RANGE,
-        reason: 'HH + HL structure without confirmed BOS (consolidating)',
+        regime: RegimeType.INSUFFICIENT_DATA,
+        reason: 'HH + HL structure exists, but bullish trend not yet confirmed (awaiting BOS)',
       };
     }
 
@@ -58,13 +61,15 @@ export class RegimeEvaluator {
         };
       }
 
+      // LH + LL without BOS: structure exists but trend not confirmed
+      // This is NOT automatically RANGE - it's directional structure awaiting confirmation
       return {
-        regime: RegimeType.RANGE,
-        reason: 'LH + LL structure without confirmed BOS (consolidating)',
+        regime: RegimeType.INSUFFICIENT_DATA,
+        reason: 'LH + LL structure exists, but bearish trend not yet confirmed (awaiting BOS)',
       };
     }
 
-    // NEUTRAL structure = RANGE
+    // NEUTRAL structure: mixed directional signals = RANGE
     return {
       regime: RegimeType.RANGE,
       reason: 'Neutral structure (mixed directional signals)',
@@ -123,5 +128,34 @@ export class RegimeEvaluator {
     }
 
     return false;
+  }
+
+  static evaluateStructuralDirection(snapshot: StructureSnapshot): StructuralDirectionState {
+    const structureType = snapshot.getStructureType();
+    const bosEvents = snapshot.getBOSEvents();
+    const bullishBOS = bosEvents.filter((b) => b.direction === 'bullish');
+    const bearishBOS = bosEvents.filter((b) => b.direction === 'bearish');
+
+    if (structureType === StructureType.BULLISH) {
+      return {
+        direction: 'bullish',
+        trendConfirmed: bullishBOS.length > 0,
+        bosCount: bullishBOS.length,
+      };
+    }
+
+    if (structureType === StructureType.BEARISH) {
+      return {
+        direction: 'bearish',
+        trendConfirmed: bearishBOS.length > 0,
+        bosCount: bearishBOS.length,
+      };
+    }
+
+    return {
+      direction: 'neutral',
+      trendConfirmed: false,
+      bosCount: 0,
+    };
   }
 }

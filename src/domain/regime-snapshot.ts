@@ -8,16 +8,28 @@ export interface RegimeEvidence {
   readonly swingCount: number;
 }
 
+export interface StructuralDirectionState {
+  direction: 'bullish' | 'bearish' | 'neutral';
+  trendConfirmed: boolean;
+  bosCount: number;
+}
+
 export class RegimeSnapshot {
   readonly symbol: string;
   private readonly _asOfTimeUTC: Date;
   private readonly _knowledgeTimeUTC: Date;
 
-  // Multi-timeframe regimes
+  // Multi-timeframe regimes (all preserved independently)
   readonly macro1DRegime: RegimeType;
   readonly primary60mRegime: RegimeType;
   readonly intermediate15mRegime: RegimeType;
   readonly execution5mRegime: RegimeType;
+
+  // Structural direction (separate from regime classification)
+  readonly macro1DStructure: StructuralDirectionState;
+  readonly primary60mStructure: StructuralDirectionState;
+  readonly intermediate15mStructure: StructuralDirectionState;
+  readonly execution5mStructure: StructuralDirectionState;
 
   // Current dominant regime (highest-context regime)
   readonly currentRegime: RegimeType;
@@ -46,6 +58,10 @@ export class RegimeSnapshot {
     intermediate15mRegime: RegimeType,
     execution5mRegime: RegimeType,
     currentRegime: RegimeType,
+    macro1DStructure: StructuralDirectionState = { direction: 'neutral', trendConfirmed: false, bosCount: 0 },
+    primary60mStructure: StructuralDirectionState = { direction: 'neutral', trendConfirmed: false, bosCount: 0 },
+    intermediate15mStructure: StructuralDirectionState = { direction: 'neutral', trendConfirmed: false, bosCount: 0 },
+    execution5mStructure: StructuralDirectionState = { direction: 'neutral', trendConfirmed: false, bosCount: 0 },
     transitionDetails: { from: RegimeType; chochDirection: 'bullish' | 'bearish' } | null = null,
     evidence1D: RegimeEvidence = { structurePresent: false, bosCount: 0, chochCount: 0, swingCount: 0 },
     evidence60m: RegimeEvidence = { structurePresent: false, bosCount: 0, chochCount: 0, swingCount: 0 },
@@ -61,6 +77,10 @@ export class RegimeSnapshot {
     this.primary60mRegime = primary60mRegime;
     this.intermediate15mRegime = intermediate15mRegime;
     this.execution5mRegime = execution5mRegime;
+    this.macro1DStructure = { ...macro1DStructure };
+    this.primary60mStructure = { ...primary60mStructure };
+    this.intermediate15mStructure = { ...intermediate15mStructure };
+    this.execution5mStructure = { ...execution5mStructure };
     this.currentRegime = currentRegime;
     this.transitionDetails = transitionDetails;
     this.evidence1D = { ...evidence1D };
