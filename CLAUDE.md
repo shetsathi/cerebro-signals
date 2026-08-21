@@ -1227,6 +1227,8 @@ Outputs:
 | Part 4: Regime Engine | ✅ Complete | Integration + unit | Multi-TF synthesis |
 | Part 5: Level & Location | ✅ Complete | 50+ tests | K-nearest, interactions |
 | Part 6: Setup Qualification | ✅ Complete | Core tests | 4 setup families |
+| Part 7: Trigger Engine | ✅ Complete | 21 tests | Confirms setup price action |
+| Part 8: Risk Engine | ✅ Complete | 24 tests | Geometric & R:R validation |
 | H2: Historical Framework | 🔄 In Progress | 80% | Performance optimization active |
 
 ### Recent Commits
@@ -1905,9 +1907,137 @@ class TriggerSnapshot {
 ✅ **ZERO V2 pipeline** (no Evidence Engine, Strategy Engine, Trade Plan, Recommendation)  
 ✅ **ZERO AI decision-making** (deterministic structure-first only)  
 
+## Part 8: Risk Engine
+
+**Status:** ✅ IMPLEMENTED & FROZEN (2026-08-22)  
+**Tests:** 24 tests (536 total, all passing)  
+**Build:** TypeScript ✅, Tests ✅, Build ✅  
+
+### Overview
+
+Part 8 validates triggered trades against structural risk constraints. It is a deterministic safety/validation layer between Trigger and Decision.
+
+**Key Principle:** Risk outputs VALID/REJECTED/INVALID/UNKNOWN only. It does NOT make final trading decisions (LONG/SHORT/WAIT).
+
+### Frozen Rules
+
+**Entry**:
+```typescript
+Entry = Trigger.confirmationClose  // Deterministic reference price
+```
+
+**Stop**:
+```typescript
+Stop = Setup.evidence.sourceLevelPrice  // Structural invalidation level
+```
+
+**Target**:
+```typescript
+LONG:  Nearest RESISTANCE above Entry (by price)
+SHORT: Nearest SUPPORT below Entry (by price)
+UNKNOWN: No valid opposing structural level exists
+```
+
+**Risk & Reward**:
+```typescript
+LONG:  Risk = |Entry - Stop|,  Reward = |Target - Entry|
+SHORT: Risk = |Stop - Entry|,  Reward = |Entry - Target|
+R:R = Reward / Risk
+```
+
+**Risk States**:
+```
+INVALID  → Stop geometry invalid (wrong side of Entry)
+UNKNOWN  → No reliable opposing structural target
+REJECTED → R:R < minimumRR (2.0 configurable)
+VALID    → All constraints satisfied
+```
+
+### Architecture
+
+**Input:**
+- TriggerSnapshot (confirmed triggers)
+- LocationSnapshot (structural levels)
+- asOfTimeUTC (causality marker)
+- RiskEngineConfig (minimumRR)
+
+**Process**:
+```typescript
+RiskEngine.getRiskSnapshot(
+  triggerSnapshot: TriggerSnapshot,
+  locationSnapshot: LocationSnapshot,
+  asOfTimeUTC: Date,
+  config: RiskEngineConfig,
+): RiskSnapshot
+```
+
+**Output:**
+- RiskSnapshot (sealed, immutable)
+- Risk objects (frozen) with VALID/REJECTED/INVALID/UNKNOWN status
+
+### Key Contracts
+
+**Risk Class:**
+- Immutable (all readonly fields, Object.freeze)
+- Carries: entry, stop, target, risk, reward, R:R, status, statusReason
+- Includes: stopLevelId, targetLevelId for traceability
+
+**RiskSnapshot:**
+- Sealed container (Object.freeze after construction)
+- Query methods: getAllRisks(), getRiskById(), getRisksByTriggerId/SetupId()
+- Defensive copies: Array.from() for accessor returns
+
+**RiskEngineConfig:**
+- minimumRR: configurable hypothesis (default 2.0)
+- rulesetVersion, configHash for versioning
+
+### Mandatory Requirements Enforced
+
+1. **Entry**: Trigger.confirmationClose (not broker fill)
+2. **Stop**: Structural invalidation level (sourceLevelPrice)
+3. **Target**: Nearest valid opposing structural level (no ranking by origin/strength/timeframe)
+4. **Stop Geometry**: LONG (Stop < Entry), SHORT (Stop > Entry)
+5. **Target Selection**: Pure price-based nearest, no hidden scoring
+6. **No Look-Ahead**: Only levels with knowledgeTimeUTC ≤ asOfTimeUTC
+7. **Determinism**: Same input → identical output
+8. **Immutability**: Risk frozen, RiskSnapshot sealed
+9. **No Final Decisions**: Outputs only VALID/REJECTED/INVALID/UNKNOWN
+10. **No V2 Architecture**: Zero indicators, AI, Evidence Engine, or position sizing
+
+### Test Coverage (24 tests)
+
+- ✅ Entry validation (1 test)
+- ✅ Stop derivation & geometry (3 tests)
+- ✅ Target selection & filtering (5 tests)
+- ✅ UNKNOWN state (3 tests)
+- ✅ Risk/Reward calculation (5 tests)
+- ✅ R:R threshold & REJECTED (3 tests)
+- ✅ Causality/no-look-ahead (1 test)
+- ✅ Immutability (2 tests)
+- ✅ Determinism (1 test)
+- ✅ Multiple triggers (1 test)
+
+### Files
+
+**Added:**
+- `src/domain/risk.ts` — Risk class + RiskStatus enum
+- `src/domain/risk-snapshot.ts` — RiskSnapshot container
+- `src/domain/risk-engine.ts` — RiskEngine evaluator (deterministic rules)
+- `src/__tests__/risk-engine.test.ts` — 24 comprehensive tests
+
+**Modified:**
+- `src/index.ts` — Added Part 8 exports
+
+### V2 Leakage
+
+✅ **ZERO indicators introduced** (RSI, MACD, EMA, VWAP, ADX, Supertrend, Bollinger)  
+✅ **ZERO V2 pipeline** (no Evidence Engine, Strategy Engine, Trade Plan, Recommendation)  
+✅ **ZERO AI decision-making** (deterministic structure-first only)  
+✅ **ZERO position sizing** (out of scope)  
+✅ **ZERO portfolio risk** (single-trigger scope)  
+
 ### Remaining Work
 
-- **Part 8 — Risk:** NOT IMPLEMENTED (future)
 - **Part 9 — Decision:** NOT IMPLEMENTED (future)
 
 ---

@@ -30,6 +30,11 @@ export { TriggerType, Trigger } from './domain/trigger';
 export { TriggerSnapshot } from './domain/trigger-snapshot';
 export { TriggerEngine, TriggerEngineConfig } from './domain/trigger-engine';
 
+// Risk Engine exports (Part 8)
+export { RiskStatus, Risk } from './domain/risk';
+export { RiskSnapshot } from './domain/risk-snapshot';
+export { RiskEngine, RiskEngineConfig } from './domain/risk-engine';
+
 // Persistence exports
 export { CandleRepository } from './persistence/candle-repository.interface';
 export { SupabaseCandleRepository } from './persistence/supabase-candle-repository';
