@@ -71,7 +71,7 @@ export class LevelEngine {
     // Filter levels by knowledge time
     const validLevels = levels.filter((level) => level.knowledgeTimeUTC <= asOfTimeUTC);
 
-    // Detect events
+    // Detect events (including FAILED_BREAK and RETEST_INTERACTION)
     const events = this.detectEvents(relevantCandles, validLevels, asOfTimeUTC, config);
 
     // Filter events by knowledge time
@@ -156,11 +156,11 @@ export class LevelEngine {
       levels.push(level);
     }
 
-    // 2. Create prior-period levels (day, week back, month back from daily candles)
+    // 2. Create prior-period levels (day, week back, month back)
     const candlesByTimeframe = this.groupByTimeframe(candles);
-
-    // Prior Day levels
     const dailyCandles = candlesByTimeframe.get(TimeframeValue.DAILY) || [];
+
+    // Prior Day levels: immediately prior closed day
     if (dailyCandles.length >= 2) {
       const priorDaily = dailyCandles[dailyCandles.length - 2];
       if (priorDaily.isClosed() && priorDaily.knowledgeTimeUTC <= asOfTime) {
@@ -168,20 +168,16 @@ export class LevelEngine {
       }
     }
 
-    // Prior Week levels: find a candle ~5 trading days back
-    if (dailyCandles.length >= 6) {
-      const priorWeek = dailyCandles[dailyCandles.length - 6];
-      if (priorWeek.isClosed() && priorWeek.knowledgeTimeUTC <= asOfTime) {
-        levels.push(...this.createPriorPeriodLevels(priorWeek, LevelOrigin.PRIOR_WEEK, symbol, config));
-      }
+    // Prior Week levels: candle from previous week boundary
+    const priorWeekCandle = this.getPriorWeekCandle(dailyCandles, asOfTime);
+    if (priorWeekCandle && priorWeekCandle.knowledgeTimeUTC <= asOfTime) {
+      levels.push(...this.createPriorPeriodLevels(priorWeekCandle, LevelOrigin.PRIOR_WEEK, symbol, config));
     }
 
-    // Prior Month levels: find a candle ~21 trading days back
-    if (dailyCandles.length >= 21) {
-      const priorMonth = dailyCandles[dailyCandles.length - 21];
-      if (priorMonth.isClosed() && priorMonth.knowledgeTimeUTC <= asOfTime) {
-        levels.push(...this.createPriorPeriodLevels(priorMonth, LevelOrigin.PRIOR_MONTH, symbol, config));
-      }
+    // Prior Month levels: candle from previous month boundary
+    const priorMonthCandle = this.getPriorMonthCandle(dailyCandles, asOfTime);
+    if (priorMonthCandle && priorMonthCandle.knowledgeTimeUTC <= asOfTime) {
+      levels.push(...this.createPriorPeriodLevels(priorMonthCandle, LevelOrigin.PRIOR_MONTH, symbol, config));
     }
 
     // 3. Create gap-edge levels
@@ -191,6 +187,60 @@ export class LevelEngine {
     }
 
     return levels;
+  }
+
+  private static getPriorWeekCandle(dailyCandles: Candle[], asOfTime: Date): Candle | null {
+    if (dailyCandles.length === 0) return null;
+
+    const currentDate = new SessionTime(asOfTime);
+    const currentWeekStart = this.getWeekStart(currentDate);
+
+    // Find the last candle of the prior week (Friday of prior week)
+    for (let i = dailyCandles.length - 1; i >= 0; i--) {
+      const candle = dailyCandles[i];
+      const candleDate = new SessionTime(candle.closeTimeUTC);
+      const candleWeekStart = this.getWeekStart(candleDate);
+
+      // Check if this candle is from a prior week
+      if (candleWeekStart.getTime() < currentWeekStart.getTime()) {
+        return candle;
+      }
+    }
+
+    return null;
+  }
+
+  private static getPriorMonthCandle(dailyCandles: Candle[], asOfTime: Date): Candle | null {
+    if (dailyCandles.length === 0) return null;
+
+    const asOfDate = new SessionTime(asOfTime);
+    const currentMonth = asOfDate.ist.getMonth();
+    const currentYear = asOfDate.ist.getFullYear();
+
+    // Find the last candle of the prior month
+    for (let i = dailyCandles.length - 1; i >= 0; i--) {
+      const candle = dailyCandles[i];
+      const candleDate = new SessionTime(candle.closeTimeUTC);
+      const candleMonth = candleDate.ist.getMonth();
+      const candleYear = candleDate.ist.getFullYear();
+
+      // Check if prior month
+      if (candleYear < currentYear || (candleYear === currentYear && candleMonth < currentMonth)) {
+        return candle;
+      }
+    }
+
+    return null;
+  }
+
+  private static getWeekStart(sessionTime: SessionTime): Date {
+    const date = new Date(sessionTime.ist);
+    const day = date.getDay();
+    // Monday = 1, so (day + 6) % 7 gives us Monday
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    const weekStart = new Date(date.setDate(diff));
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
   }
 
   private static createPriorPeriodLevels(
@@ -317,9 +367,13 @@ export class LevelEngine {
     config: LevelEngineConfig,
   ): LevelEvent[] {
     const events: LevelEvent[] = [];
+    const breaksByLevelId = new Map<string, number>(); // levelId -> breakCandleIndex
 
+    // Phase 1: Detect primary events (interaction, break, wick rejection)
     for (const level of levels) {
-      for (const candle of candles) {
+      for (let candleIndex = 0; candleIndex < candles.length; candleIndex++) {
+        const candle = candles[candleIndex];
+
         if (candle.symbol !== level.symbol) continue;
         if (!candle.timeframe.equals(level.timeframe)) continue;
         if (candle.knowledgeTimeUTC > asOfTime) continue;
@@ -338,47 +392,51 @@ export class LevelEngine {
           );
         }
 
-        // Detect break (close-based, strict)
-        if (level.polarity === LevelPolarity.RESISTANCE && candle.ohlc.close > level.price) {
-          const breakMechanism = this.detectBreakMechanism(
-            candles.indexOf(candle),
-            level.price,
-            candles,
-            'bearish',
-          );
-
-          events.push(
-            new LevelEvent(
-              `break_${level.levelId}_${candle.id}`,
-              level.levelId,
-              LevelEventType.BREAK,
-              candle.timeframe,
-              candle.closeTimeUTC,
-              candle.knowledgeTimeUTC,
-              'bearish',
-              breakMechanism,
-            ),
-          );
-        } else if (level.polarity === LevelPolarity.SUPPORT && candle.ohlc.close < level.price) {
-          const breakMechanism = this.detectBreakMechanism(
-            candles.indexOf(candle),
-            level.price,
-            candles,
-            'bullish',
-          );
-
-          events.push(
-            new LevelEvent(
-              `break_${level.levelId}_${candle.id}`,
-              level.levelId,
-              LevelEventType.BREAK,
-              candle.timeframe,
-              candle.closeTimeUTC,
-              candle.knowledgeTimeUTC,
+        // Detect break (close-based, strict) - only first break per level
+        if (!breaksByLevelId.has(level.levelId)) {
+          if (level.polarity === LevelPolarity.RESISTANCE && candle.ohlc.close > level.price) {
+            const breakMechanism = this.detectBreakMechanism(
+              candleIndex,
+              level.price,
+              candles,
               'bullish',
-              breakMechanism,
-            ),
-          );
+            );
+
+            events.push(
+              new LevelEvent(
+                `break_${level.levelId}_${candle.id}`,
+                level.levelId,
+                LevelEventType.BREAK,
+                candle.timeframe,
+                candle.closeTimeUTC,
+                candle.knowledgeTimeUTC,
+                'bullish',
+                breakMechanism,
+              ),
+            );
+            breaksByLevelId.set(level.levelId, candleIndex);
+          } else if (level.polarity === LevelPolarity.SUPPORT && candle.ohlc.close < level.price) {
+            const breakMechanism = this.detectBreakMechanism(
+              candleIndex,
+              level.price,
+              candles,
+              'bearish',
+            );
+
+            events.push(
+              new LevelEvent(
+                `break_${level.levelId}_${candle.id}`,
+                level.levelId,
+                LevelEventType.BREAK,
+                candle.timeframe,
+                candle.closeTimeUTC,
+                candle.knowledgeTimeUTC,
+                'bearish',
+                breakMechanism,
+              ),
+            );
+            breaksByLevelId.set(level.levelId, candleIndex);
+          }
         }
 
         // Detect wick rejection
@@ -410,6 +468,78 @@ export class LevelEngine {
       }
     }
 
+    // Phase 2: Detect compound events (FAILED_BREAK, RETEST_INTERACTION) based on detected breaks
+    for (const level of levels) {
+      const breakCandleIndex = breaksByLevelId.get(level.levelId);
+      if (breakCandleIndex === undefined) continue; // No break detected for this level
+
+      for (let j = breakCandleIndex + 1; j < candles.length; j++) {
+        const testCandle = candles[j];
+        if (testCandle.symbol !== level.symbol) continue;
+        if (!testCandle.timeframe.equals(level.timeframe)) continue;
+        if (testCandle.knowledgeTimeUTC > asOfTime) continue;
+
+        // Check if we're still within maxBarsFailedBreak window
+        const barsAfterBreak = j - breakCandleIndex;
+        if (barsAfterBreak >= config.maxBarsFailedBreak) break;
+
+        // Detect FAILED_BREAK
+        const isFailedBreak =
+          (level.polarity === LevelPolarity.RESISTANCE && testCandle.ohlc.close <= level.price) ||
+          (level.polarity === LevelPolarity.SUPPORT && testCandle.ohlc.close >= level.price);
+
+        if (isFailedBreak) {
+          // Failed break direction is opposite of the break direction
+          events.push(
+            new LevelEvent(
+              `failed_break_${level.levelId}_${testCandle.id}`,
+              level.levelId,
+              LevelEventType.FAILED_BREAK,
+              testCandle.timeframe,
+              testCandle.closeTimeUTC,
+              testCandle.knowledgeTimeUTC,
+              level.polarity === LevelPolarity.RESISTANCE ? 'bearish' : 'bullish',
+            ),
+          );
+          break; // Only first failed break
+        }
+      }
+
+      // Detect RETEST_INTERACTION
+      let foundRetest = false;
+      for (let j = breakCandleIndex + 1; j < candles.length && !foundRetest; j++) {
+        const testCandle = candles[j];
+        if (testCandle.symbol !== level.symbol) continue;
+        if (!testCandle.timeframe.equals(level.timeframe)) continue;
+        if (testCandle.knowledgeTimeUTC > asOfTime) continue;
+
+        const barsAfterBreak = j - breakCandleIndex;
+        if (barsAfterBreak >= config.maxBarsAfterBreak) break;
+
+        // Check for opposite break (breaks chain)
+        const isOppositeBreak =
+          (level.polarity === LevelPolarity.RESISTANCE && testCandle.ohlc.close < level.price) ||
+          (level.polarity === LevelPolarity.SUPPORT && testCandle.ohlc.close > level.price);
+
+        if (isOppositeBreak) break; // Chain broken
+
+        // Check for interaction
+        if (testCandle.ohlc.low <= level.price && testCandle.ohlc.high >= level.price) {
+          events.push(
+            new LevelEvent(
+              `retest_interaction_${level.levelId}_${testCandle.id}`,
+              level.levelId,
+              LevelEventType.RETEST_INTERACTION,
+              testCandle.timeframe,
+              testCandle.closeTimeUTC,
+              testCandle.knowledgeTimeUTC,
+            ),
+          );
+          foundRetest = true;
+        }
+      }
+    }
+
     return events;
   }
 
@@ -427,12 +557,12 @@ export class LevelEngine {
     const currCandle = candles[candleIndex];
 
     if (direction === 'bullish') {
-      // Gap up break: previous close < level AND current open > level
+      // Bullish break (RESISTANCE broken upward): previous close < level AND current open > level
       if (prevCandle.ohlc.close < levelPrice && currCandle.ohlc.open > levelPrice) {
         return BreakMechanism.GAPPED;
       }
     } else {
-      // Gap down break: previous close > level AND current open < level
+      // Bearish break (SUPPORT broken downward): previous close > level AND current open < level
       if (prevCandle.ohlc.close > levelPrice && currCandle.ohlc.open < levelPrice) {
         return BreakMechanism.GAPPED;
       }
@@ -484,7 +614,6 @@ export class LevelEngine {
     if (levels.length === 0) {
       return DataSufficiency.INSUFFICIENT_DATA;
     }
-    // Simple heuristic: if we have levels, we have sufficient data
     return DataSufficiency.SUFFICIENT;
   }
 
@@ -503,7 +632,8 @@ export class LevelEngine {
 
     for (const [timeframeValue, timeframeLevels] of byTimeframe) {
       const sorted = [...timeframeLevels].sort(LevelComparator.byPriceAscending);
-      result.set(timeframeValue, sorted.slice(0, k));
+      const frozen = Object.freeze([...sorted.slice(0, k)]);
+      result.set(timeframeValue, frozen as Level[]);
     }
 
     return result;
@@ -515,7 +645,8 @@ export class LevelEngine {
 
     for (const [timeframeValue, timeframeLevels] of byTimeframe) {
       const sorted = [...timeframeLevels].sort(LevelComparator.byPriceDescending);
-      result.set(timeframeValue, sorted.slice(0, k));
+      const frozen = Object.freeze([...sorted.slice(0, k)]);
+      result.set(timeframeValue, frozen as Level[]);
     }
 
     return result;

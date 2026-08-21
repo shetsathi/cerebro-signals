@@ -50,6 +50,7 @@ export class Level {
     this.knowledgeTimeUTC = new Date(knowledgeTimeUTC.getTime());
     this.rulesetVersion = rulesetVersion;
     this.configHash = configHash;
+    Object.freeze(this);
   }
 
   toString(): string {

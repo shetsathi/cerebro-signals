@@ -269,7 +269,7 @@ describe('LevelEngine - Deterministic Level & Location Engine', () => {
 
       const breaks = snapshot.getAllEvents().filter((e) => e.eventType === LevelEventType.BREAK);
       expect(breaks.length).toBeGreaterThan(0);
-      expect(breaks[0].direction).toBe('bearish');
+      expect(breaks[0].direction).toBe('bullish');
     });
 
     it('should detect break of SUPPORT level when close < price', () => {
@@ -286,7 +286,7 @@ describe('LevelEngine - Deterministic Level & Location Engine', () => {
 
       const breaks = snapshot.getAllEvents().filter((e) => e.eventType === LevelEventType.BREAK);
       expect(breaks.length).toBeGreaterThan(0);
-      expect(breaks[0].direction).toBe('bullish');
+      expect(breaks[0].direction).toBe('bearish');
     });
   });
 

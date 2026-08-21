@@ -30,9 +30,9 @@ export class LocationSnapshot {
   readonly rulesetVersion: string;
   readonly configHash: string;
 
-  // K nearest active levels above and below per timeframe
-  private readonly nearestLevelsAbove: Map<string, Level[]>;
-  private readonly nearestLevelsBelow: Map<string, Level[]>;
+  // K nearest active levels above and below per timeframe (values are frozen)
+  private readonly nearestLevelsAbove: Map<string, ReadonlyArray<Level>>;
+  private readonly nearestLevelsBelow: Map<string, ReadonlyArray<Level>>;
 
   // All events for replay/analysis
   private readonly allLevels: ReadonlyArray<Level>;
@@ -66,8 +66,17 @@ export class LocationSnapshot {
     this.configHash = configHash;
     this.allLevels = Object.freeze([...allLevels]);
     this.allEvents = Object.freeze([...allEvents]);
-    this.nearestLevelsAbove = new Map(nearestLevelsAbove);
-    this.nearestLevelsBelow = new Map(nearestLevelsBelow);
+    // Freeze the arrays inside maps
+    const frozenAbove = new Map<string, ReadonlyArray<Level>>();
+    for (const [key, arr] of nearestLevelsAbove) {
+      frozenAbove.set(key, Object.freeze([...arr]));
+    }
+    this.nearestLevelsAbove = frozenAbove;
+    const frozenBelow = new Map<string, ReadonlyArray<Level>>();
+    for (const [key, arr] of nearestLevelsBelow) {
+      frozenBelow.set(key, Object.freeze([...arr]));
+    }
+    this.nearestLevelsBelow = frozenBelow;
     this.polarityStates = new Map(polarityStates);
   }
 
@@ -88,11 +97,13 @@ export class LocationSnapshot {
   }
 
   getNearestLevelsAbove(timeframeValue: TimeframeValue): Level[] {
-    return [...(this.nearestLevelsAbove.get(timeframeValue) || [])];
+    const levels = this.nearestLevelsAbove.get(timeframeValue);
+    return levels ? [...levels] : [];
   }
 
   getNearestLevelsBelow(timeframeValue: TimeframeValue): Level[] {
-    return [...(this.nearestLevelsBelow.get(timeframeValue) || [])];
+    const levels = this.nearestLevelsBelow.get(timeframeValue);
+    return levels ? [...levels] : [];
   }
 
   getPolarityState(levelId: string): PolarityState | undefined {

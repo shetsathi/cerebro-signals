@@ -41,6 +41,7 @@ export class LevelEvent {
     this.candleTimeframe = candleTimeframe;
     this.eventTimeUTC = new Date(eventTimeUTC.getTime());
     this.knowledgeTimeUTC = new Date(knowledgeTimeUTC.getTime());
+    Object.freeze(this);
   }
 
   toString(): string {
