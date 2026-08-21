@@ -25,6 +25,11 @@ export { RegimeEvaluator } from './domain/regime-evaluator';
 export { RegimeStateMachine, RegimeTransition } from './domain/regime-state-machine';
 export { RegimeEngine } from './domain/regime-engine';
 
+// Trigger Engine exports (Part 7)
+export { TriggerType, Trigger } from './domain/trigger';
+export { TriggerSnapshot } from './domain/trigger-snapshot';
+export { TriggerEngine, TriggerEngineConfig } from './domain/trigger-engine';
+
 // Persistence exports
 export { CandleRepository } from './persistence/candle-repository.interface';
 export { SupabaseCandleRepository } from './persistence/supabase-candle-repository';

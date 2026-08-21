@@ -1761,17 +1761,42 @@ BREAKOUT_RETEST_LONG:
 
 ## Part 7: Trigger Engine
 
-**Status:** ✅ IMPLEMENTED (2026-08-22)  
-**Tests:** 16 new tests (507 total, all passing)  
+**Status:** ✅ IMPLEMENTED & CORRECTED (2026-08-22)  
+**Tests:** 21 tests (512 total, all passing) — 5 new regression tests for retest defense  
 **Build:** TypeScript ✅, Tests ✅, Build ✅  
 
 ### Overview
 
 Part 7 evaluates whether lower-timeframe (5m) price action has **confirmed** a qualified setup from Part 6.
 
-**Key Principle:** QUALIFIED ≠ TRIGGERED
+**Key Principle:** QUALIFIED ≠ TRIGGERED, and RETEST_INTERACTION ≠ RETEST_HELD
 
-A setup becoming QUALIFIED is not automatic entry. Trigger confirms that the market has provided the required lower-timeframe price action confirmation.
+A setup becoming QUALIFIED is not automatic entry. Trigger confirms that:
+1. The market has provided the required lower-timeframe price action confirmation
+2. The underlying retest/interaction has been successfully defended (not subsequently broken)
+
+### Critical Correction — Option 4: Explicit Retest Defense Check
+
+**Issue Identified:** Initial Part 7 implementation trusted current polarity state to infer retest defense, but Part 5 doesn't update polarity when retests fail (no flip-back logic). This created a cross-layer defect where failed retests could still trigger.
+
+**Fix Applied:** Part 7 now explicitly checks event history to detect invalidating opposite breaks:
+- After setup qualifies, Part 7 inspects LocationSnapshot.getAllEvents()
+- For LONG setups: Searches for bearish BREAK events after the setup's interaction event
+- For SHORT setups: Searches for bullish BREAK events after the setup's interaction event
+- If invalidating break found: Setup is not triggerable (even if Part 6 snapshot still shows QUALIFIED)
+- Causality respected: Only events with eventTimeUTC ≤ asOfTimeUTC are considered
+
+**Key Method:** `TriggerEngine.checkForInvalidatingBreak(setup, levelId, allEvents, asOfTime)`
+
+### Regression Tests Added
+
+| Test | Scenario | Expected | Status |
+|------|----------|----------|--------|
+| A | Valid retest (break → interaction → bullish confirmation) | BULLISH_BREAKOUT fires | ✅ PASS |
+| B | Failed retest (break → interaction → bearish break → later recovery) | NO TRIGGER | ✅ PASS |
+| C | Failed retest doesn't resurrect (same as B, many bars later) | NO TRIGGER | ✅ PASS |
+| D | Future events don't affect past triggers (causality) | Trigger at historical time, unaffected by later breaks | ✅ PASS |
+| E | Pullback invalidation (break → interaction → bearish break) | NO TRIGGER | ✅ PASS |
 
 ### Architecture
 
@@ -1797,12 +1822,22 @@ TriggerEngine.getTriggerSnapshot(
 
 ### Trigger Types
 
+**IMPLEMENTED (executable, deterministic rules defined):**
+
 | Type | Condition | Setup Type | Direction |
 |---|---|---|---|
 | BULLISH_RECLAIM | Close > flipped SUPPORT | PULLBACK_LONG | LONG |
 | BEARISH_RECLAIM | Close < flipped RESISTANCE | PULLBACK_SHORT | SHORT |
 | BULLISH_BREAKOUT | Close > original RESISTANCE after retest | BREAKOUT_RETEST_LONG | LONG |
 | BEARISH_BREAKDOWN | Close < original SUPPORT after retest | BREAKOUT_RETEST_SHORT | SHORT |
+
+**DEFINED IN V1 SPECIFICATION BUT NOT YET EXECUTABLE:**
+
+- **BULLISH_REVERSAL**: The V1 architecture names this trigger concept as part of the formal contract. However, the deterministic execution semantics for reversal confirmation are not yet sufficiently specified. Implementation awaits formal V1 specification of reversal conditions. Do NOT invent generic candlestick-pattern reversal rules.
+
+- **BEARISH_REVERSAL**: The V1 architecture names this trigger concept as part of the formal contract. However, the deterministic execution semantics for reversal confirmation are not yet sufficiently specified. Implementation awaits formal V1 specification of reversal conditions. Do NOT invent generic candlestick-pattern reversal rules.
+
+These are preserved in the TriggerType enum to maintain V1 contract integrity. Reversal evaluation logic must be added only after formal specification of reversal semantics in the V1 design.
 
 ### Key Contracts
 
