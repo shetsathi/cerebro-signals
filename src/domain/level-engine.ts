@@ -20,7 +20,72 @@ export interface LevelEngineConfig {
   configHash: string;
 }
 
+/**
+ * PART 5 LIMITATIONS & KNOWN CONSTRAINTS
+ *
+ * Indian Market Calendar Handling:
+ * - SUPPORTED: Weekend detection (Saturday/Sunday)
+ * - SUPPORTED: Normal session hours (9:15-15:30 IST)
+ * - NOT SUPPORTED: Exchange holidays (Independence Day, Holi, Diwali, etc.)
+ * - NOT SUPPORTED: Muhurat trading sessions (shortened time windows)
+ * - NOT SUPPORTED: Gap days (holiday-adjacent sessions with opening gap semantics)
+ * - NOT SUPPORTED: Expiry-day special handling (monthly F&O expiries)
+ * - NOT SUPPORTED: Shortened sessions (seasonal closures, pre-holiday closures)
+ *
+ * Implications:
+ * - Prior-period (PRIOR_DAY, PRIOR_WEEK, PRIOR_MONTH) levels may span holidays incorrectly
+ * - Gap-edge levels between trading days separated by holidays are not marked as special
+ * - No distinction between normal overnight gaps and multi-day holiday gaps
+ *
+ * Future Enhancement Required:
+ * - Exchange calendar source (NSE/BSE official holiday list)
+ * - Validation that prior-period levels only reference closed trading periods
+ * - Gap classification enhanced to identify holiday gaps vs normal gaps
+ *
+ * Current Workaround:
+ * - Part 5 functions correctly for contiguous trading periods (normal market conditions)
+ * - Holiday handling requires external filtering at Part 6 level (before calling Part 5)
+ */
+
 export class LevelEngine {
+  /**
+   * Generate a deterministic location snapshot for a symbol at a point-in-time.
+   *
+   * INPUT CONTRACT (Required for deterministic behavior):
+   *
+   * @param candles - Array of Candle objects. MUST satisfy:
+   *   - Single symbol (all candles.symbol === symbol parameter)
+   *   - Single timeframe (all candles.timeframe must be identical value)
+   *   - Chronologically sorted by openTimeUTC ascending (no out-of-order candles)
+   *   - No duplicate candles (each candle represents unique time period)
+   *   - Only CLOSED status candles (developing candles must be excluded)
+   *   - contiguous series: if timeframe allows, no missing bars (undefined gaps)
+   *   All constraint violations result in undefined behavior.
+   *
+   * @param structureSnapshot - Structure analysis snapshot (frozen, from StructureEngine)
+   * @param asOfTimeUTC - Point-in-time evaluation. Events/levels with knowledgeTimeUTC > asOfTime
+   *   are excluded, ensuring historical replays remain stable.
+   * @param symbol - Symbol to filter by. Candles not matching this symbol are ignored.
+   *   Candles matching symbol must have been pre-filtered (or will be filtered internally).
+   * @param config - LevelEngine configuration (k, maxBarsFailedBreak, maxBarsAfterBreak,
+   *   rulesetVersion, configHash)
+   *
+   * @returns LocationSnapshot - Immutable, frozen snapshot containing:
+   *   - allLevels: All levels created (swing, prior-period, gap-edge)
+   *   - allEvents: All events detected (interaction, break, failed-break, retest, wick-rejection)
+   *   - nearestLevelsAbove/Below: K nearest active levels per timeframe (if k > 0)
+   *   - polarityStates: Current polarity for each level (reflects BREAK events)
+   *   - dataSufficiency: SUFFICIENT if ≥1 level exists, INSUFFICIENT_DATA otherwise
+   *   - Knowledge-time guarantee: All contents respect knowledgeTimeUTC <= asOfTime
+   *
+   * @throws (currently) No validation errors thrown. Input contract violations result in
+   *   silent undefined behavior. Future versions may validate and throw.
+   *
+   * DETERMINISM GUARANTEE:
+   *   - Same input (candles, structureSnapshot, asOfTime, symbol, config) → same output
+   *   - Historical snapshots stable: appending future candles does not alter snapshots
+   *   - Replay convergence: different starting points converge at same asOfTime
+   */
   static getLocationSnapshot(
     candles: Candle[],
     structureSnapshot: StructureSnapshot,
@@ -314,6 +379,10 @@ export class LevelEngine {
     for (let i = 1; i < candles.length; i++) {
       const prevCandle = candles[i - 1];
       const currCandle = candles[i];
+
+      // Only compare candles of same symbol and timeframe (gaps must be within same series)
+      if (prevCandle.symbol !== currCandle.symbol) continue;
+      if (!prevCandle.timeframe.equals(currCandle.timeframe)) continue;
 
       if (!prevCandle.isClosed() || !currCandle.isClosed()) continue;
       if (currCandle.knowledgeTimeUTC > asOfTime) continue;
@@ -610,10 +679,25 @@ export class LevelEngine {
     return states;
   }
 
+  /**
+   * Determine data sufficiency.
+   *
+   * Current V1 implementation:
+   * - Returns INSUFFICIENT_DATA if no levels have been created.
+   * - Returns SUFFICIENT if at least one level exists.
+   *
+   * WARMING_UP is reserved for future use when a minimum bar count or data age
+   * requirement is defined. Currently undefined, so WARMING_UP is never returned.
+   *
+   * Contract: This method does not perform temporal or structural validation beyond
+   * level existence. It is a placeholder for warm-up logic that requires explicit
+   * configuration and justification before implementation.
+   */
   private static determineSufficiency(candles: Candle[], levels: Level[]): DataSufficiency {
     if (levels.length === 0) {
       return DataSufficiency.INSUFFICIENT_DATA;
     }
+    // WARMING_UP state is currently undefined (no minimum bar count specified)
     return DataSufficiency.SUFFICIENT;
   }
 
