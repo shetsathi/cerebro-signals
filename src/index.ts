@@ -18,6 +18,13 @@ export { StructureCalculator, SwingClassification } from './domain/structure-cal
 export { StructureSnapshot, BOSEvent, CHOCHEvent } from './domain/structure-snapshot';
 export { StructureEngine } from './domain/structure-engine';
 
+// Regime Engine exports (Part 4)
+export { RegimeType, RegimeClassification, TimeframeRegimeState } from './domain/regime-state';
+export { RegimeSnapshot, RegimeEvidence } from './domain/regime-snapshot';
+export { RegimeEvaluator } from './domain/regime-evaluator';
+export { RegimeStateMachine, RegimeTransition } from './domain/regime-state-machine';
+export { RegimeEngine } from './domain/regime-engine';
+
 // Persistence exports
 export { CandleRepository } from './persistence/candle-repository.interface';
 export { SupabaseCandleRepository } from './persistence/supabase-candle-repository';
