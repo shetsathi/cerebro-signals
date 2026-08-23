@@ -1,8 +1,9 @@
 # Cerebro Signals — Complete Project Context
 
 **Project**: Cerebro Signals V1  
-**Status**: Active Development (Part 1–6 Complete, H2 Performance Framework In Progress)  
+**Status**: COMPLETE & FROZEN (Parts 1–9 Complete, V1 Core Locked)  
 **Latest Branch**: `feature/h2-performance-optimization`  
+**Latest Commit**: `7b2c57f` (Implement Part 9 — Deterministic Decision Engine)  
 **Author**: Cerebro Signals Team  
 
 ---
@@ -17,11 +18,14 @@
 6. [Part 4: Regime Engine](#part-4-regime-engine)
 7. [Part 5: Level & Location Engine](#part-5-level--location-engine)
 8. [Part 6: Setup Qualification Engine](#part-6-setup-qualification-engine)
-9. [H2: Historical Validation & Backtest Framework](#h2-historical-validation--backtest-framework)
-10. [Current Status & Work Done](#current-status--work-done)
-11. [Key Design Decisions](#key-design-decisions)
-12. [Testing & Validation Strategy](#testing--validation-strategy)
-13. [Known Limitations & Future Work](#known-limitations--future-work)
+9. [Part 7: Trigger Engine](#part-7-trigger-engine)
+10. [Part 8: Risk Engine](#part-8-risk-engine)
+11. [Part 9: Decision Engine](#part-9-decision-engine)
+12. [H2: Historical Validation & Backtest Framework](#h2-historical-validation--backtest-framework)
+13. [Current Status & Work Done](#current-status--work-done)
+14. [Key Design Decisions](#key-design-decisions)
+15. [Testing & Validation Strategy](#testing--validation-strategy)
+16. [Known Limitations & Future Work](#known-limitations--future-work)
 
 ---
 
@@ -45,7 +49,7 @@ Cerebro Signals is a **deterministic market structure analysis engine** for trad
 - **Symbols**: Nifty 50 and other liquid stocks
 - **Timeframes**: 5m, 15m, 60m, 1D
 
-### Six-Part Architecture
+### Nine-Part Architecture (Complete)
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -70,6 +74,18 @@ Cerebro Signals is a **deterministic market structure analysis engine** for trad
                     ↓
 ┌─────────────────────────────────────────────┐
 │ Part 6: Setup Qualification Engine          │ (Pullback & Breakout setups)
+└─────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────┐
+│ Part 7: Trigger Engine                      │ (Confirms setup price action)
+└─────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────┐
+│ Part 8: Risk Engine                         │ (Geometric & R:R validation)
+└─────────────────────────────────────────────┘
+                    ↓
+┌─────────────────────────────────────────────┐
+│ Part 9: Decision Engine                     │ (Final LONG / SHORT / WAIT)
 └─────────────────────────────────────────────┘
 ```
 
@@ -1221,47 +1237,54 @@ Outputs:
 
 | Component | Status | Test Coverage | Notes |
 |-----------|--------|---------------|-------|
-| Part 1: Candles & Session | ✅ Complete | 14 test categories | Frozen, no changes |
-| Part 2: Look-Ahead & MTF | ✅ Complete | Full coverage | Causality enforced |
-| Part 3: Structure Engine | ✅ Complete | 30+ tests | Swings, BOS, CHOCH |
-| Part 4: Regime Engine | ✅ Complete | Integration + unit | Multi-TF synthesis |
-| Part 5: Level & Location | ✅ Complete | 50+ tests | K-nearest, interactions |
-| Part 6: Setup Qualification | ✅ Complete | Core tests | 4 setup families |
-| Part 7: Trigger Engine | ✅ Complete | 21 tests | Confirms setup price action |
-| Part 8: Risk Engine | ✅ Complete | 24 tests | Geometric & R:R validation |
-| H2: Historical Framework | 🔄 In Progress | 80% | Performance optimization active |
+| Part 1: Candles & Session | ✅ FROZEN | 14 test categories | Deterministic, no changes |
+| Part 2: Look-Ahead & MTF | ✅ FROZEN | Full coverage | Causality enforced |
+| Part 3: Structure Engine | ✅ FROZEN | 30+ tests | Swings, BOS, CHOCH |
+| Part 4: Regime Engine | ✅ FROZEN | Integration + unit | Multi-TF synthesis |
+| Part 5: Level & Location | ✅ FROZEN | 50+ tests | K-nearest, interactions |
+| Part 6: Setup Qualification | ✅ FROZEN | Core tests | 4 setup families |
+| Part 7: Trigger Engine | ✅ FROZEN | 21 tests | Confirms setup price action |
+| Part 8: Risk Engine | ✅ FROZEN | 24 tests | Geometric & R:R validation |
+| Part 9: Decision Engine | ✅ FROZEN | 25 tests | Final LONG/SHORT/WAIT |
+| **V1 CORE COMPLETE** | ✅ **FROZEN** | **561 tests** | **No further changes** |
 
 ### Recent Commits
 
 ```
+7b2c57f  Implement Part 9 — Deterministic Decision Engine
+0ef61bd  Implement Part 8 — Deterministic Risk Engine
+90657ca  Part 7: Fix critical retest defense defect via Option 4
+6e05004  docs: Add comprehensive CLAUDE.md project context documentation
 c120b85  H2: reject unsafe full-dataset optimization
 19b6b86  H2: complete performance architecture investigation
 fb565c0  Implement H2 validation framework with full causality and determinism guarantees
 226ea7a  Part 5 Hardening: Documentation + Gap Detection + Test Coverage
 fb0ef76  Implement Part 6 — Deterministic Setup Qualification Engine
 ad0c0d5  Part 5 Hardening - Implement FAILED_BREAK, RETEST_INTERACTION, and Period Boundaries
-c6fee14  Implement Part 5 - Deterministic Level & Location Engine
-2f1c3c9  Add Part 4 hardening verification tests
-597368e  Harden Part 4 - Correct RANGE classification and preserve structural direction
-4b712f4  Implement Part 4 - Deterministic Regime Engine
 ```
 
 ### Current Branch: `feature/h2-performance-optimization`
 
-**Focus**: Finalizing H2 historical validation framework.
+**Status**: V1 CORE COMPLETE & FROZEN
 
-**Recent Work**:
-1. ✅ Implemented full causal context system
-2. ✅ Built determinism validation (run twice, compare)
-3. ✅ Built causality validation (no T+1 access)
-4. ✅ Investigated full-dataset optimization (rejected as unsafe)
-5. 🔄 Finalizing performance benchmarks
+**Latest Work** (Session 2026-08-23):
+1. ✅ Completed Part 7: Trigger Engine (21 tests)
+2. ✅ Completed Part 8: Risk Engine (24 tests)
+3. ✅ Completed Part 9: Decision Engine (25 tests)
+4. ✅ Full V1 architecture frozen (561 tests passing)
+5. ✅ TypeScript: 0 errors, Build: success
+6. ✅ Parts 1–9 locked, no further changes permitted
 
-**Next Steps**:
-- Complete performance profiling
-- Document performance expectations
-- Merge to main
-- Begin Part 7: Live Data Integration (Angel One)
+**Completed Pipeline**:
+```
+Candles → MTF → Structure → Regime → Levels → Setup → Trigger → Risk → Decision
+```
+
+**Next Phase** (when approved):
+- H2 integration (historical validation framework)
+- Live data integration (Part 10+)
+- Application layer / UI
+- Deployment
 
 ---
 
@@ -1493,37 +1516,47 @@ it('should detect HH structure', () => {
 - Liquidity filtering (skip illiquid stocks)
 - Momentum scoring (prioritize strong movers)
 
-### Future Parts (Part 7+)
+### V1 Core — FROZEN (Parts 1–9)
 
-#### **Part 7: Live Data Integration**
+**Status**: Complete and locked. No further modifications permitted to V1 core.
+
+**Rationale**: All core structure/decision logic is frozen to maintain determinism and prevent regression.
+
+### Future Parts (Part 10+)
+
+**PART 1–9 FROZEN**: Do not modify Core.
+
+**Future Work** (when explicitly approved and specified):
+
+#### **Part 10: Live Data Integration**
 - Angel One WebSocket connection
 - Tick-to-candle aggregation
 - Real-time causality checks
-- Signal generation & decision framework
+- Signal generation framework
 
-#### **Part 8: Risk Management**
-- Stop-loss & profit target calculation
-- Portfolio risk assessment
+#### **Part 11: Order Execution**
+- Broker order API integration
+- Execution timing optimization
+- Partial fills handling
+- Slippage modeling
+
+#### **Part 12: Risk Management**
+- Position sizing
+- Portfolio-level risk assessment
 - Correlation analysis
 - Drawdown monitoring
 
-#### **Part 9: Order Execution**
-- Broker order API integration
-- Execution timing optimization
-- Partial fill reconciliation
-- Execution logging
-
-#### **Part 10: Scanning & Universe Selection**
+#### **Part 13: Scanning & Universe Selection**
 - Multi-stock scanning
 - Sector analysis
 - Liquidity filtering
 - Momentum ranking
 
-#### **Part 11: Walk-Forward Validation**
-- Train on historical window
-- Validate on subsequent window
-- Rolling validation windows
-- Performance degradation detection
+#### **Part 14+: Advanced Analytics**
+- Walk-forward validation
+- Performance metrics
+- Attribution analysis
+- Regime detection (separate from core)
 
 ---
 
@@ -2036,9 +2069,95 @@ RiskEngine.getRiskSnapshot(
 ✅ **ZERO position sizing** (out of scope)  
 ✅ **ZERO portfolio risk** (single-trigger scope)  
 
-### Remaining Work
+---
 
-- **Part 9 — Decision:** NOT IMPLEMENTED (future)
+## Part 9: Decision Engine
+
+**Status:** ✅ IMPLEMENTED & FROZEN (2026-08-23)  
+**Tests:** 25 tests (561 total, all passing)  
+**Build:** TypeScript ✅, Tests ✅, Build ✅  
+
+### Overview
+
+Part 9 is a **deterministic decision gate** that consumes frozen Risk validation outputs and produces final directional decisions: LONG, SHORT, or WAIT.
+
+**Key Principle:** Decision outputs LONG/SHORT/WAIT only. It is NOT a broker order, NOT sizing, NOT a recommendation.
+
+### Frozen Rules
+
+**Rule 1: VALID + direction LONG → Decision.LONG**
+**Rule 2: VALID + direction SHORT → Decision.SHORT**
+**Rule 3: Multiple same-direction VALID risks → collapse to one decision (all riskIds referenced)**
+**Rule 4: Opposing VALID (LONG + SHORT) → Decision.WAIT**
+**Rule 5: Non-VALID (REJECTED/INVALID/UNKNOWN) → Decision.WAIT**
+**Rule 6: No risks → Decision.WAIT**
+
+### Decision Contract
+
+**Input**: RiskSnapshot only  
+**Output**: DecisionSnapshot (sealed, immutable)
+
+**Decision Fields**:
+- `decisionId` — Deterministic (no randomness)
+- `symbol` — From RiskSnapshot
+- `riskIds` — Frozen array of referenced risks
+- `action` — LONG | SHORT | WAIT
+- `reason` — Diagnostic string
+- `knowledgeTimeUTC`, `asOfTimeUTC` — Causality markers
+- `rulesetVersion`, `configHash` — Versioning
+
+### Implementation
+
+**Files Added:**
+- `src/domain/decision.ts` — Decision class + DecisionAction enum (frozen, immutable)
+- `src/domain/decision-snapshot.ts` — DecisionSnapshot container (sealed, defensive copies)
+- `src/domain/decision-engine.ts` — DecisionEngine with frozen rules (causal, deterministic)
+- `src/__tests__/decision-engine.test.ts` — 25 comprehensive tests
+
+**Files Modified:**
+- `src/index.ts` — Added Part 9 exports
+
+### Test Coverage (25 tests)
+
+- ✅ TEST 1: VALID LONG → LONG
+- ✅ TEST 2: VALID SHORT → SHORT
+- ✅ TEST 3: Multiple VALID LONG → one LONG with all riskIds
+- ✅ TEST 4: Multiple VALID SHORT → one SHORT with all riskIds
+- ✅ TEST 5: VALID LONG + VALID SHORT → WAIT
+- ✅ TEST 6: REJECTED → WAIT
+- ✅ TEST 7: INVALID → WAIT
+- ✅ TEST 8: UNKNOWN → WAIT
+- ✅ TEST 9: No risks → WAIT
+- ✅ TEST 10: Decision immutability (+ riskIds freeze)
+- ✅ TEST 11: DecisionSnapshot sealing (+ defensive copies)
+- ✅ TEST 12: Determinism (+ deterministic IDs)
+- ✅ TEST 13: Causality enforcement
+- ✅ TEST 14: RiskSnapshot immutability preserved
+- ✅ TEST 15: Parts 1–8 behavior unchanged
+- ✅ Additional robustness tests (4 more)
+
+### V2 Leakage
+
+✅ **ZERO indicators introduced** (RSI, MACD, EMA, VWAP, ADX, Supertrend, Bollinger)  
+✅ **ZERO V2 pipeline** (no Evidence Engine, Strategy Engine, Trade Plan, Recommendation)  
+✅ **ZERO AI decision-making** (deterministic structure-first only)  
+✅ **ZERO position sizing** (out of scope)  
+✅ **ZERO portfolio risk** (single-trigger scope)  
+
+---
+
+## V1 CORE COMPLETE & FROZEN
+
+**Status**: All 9 Parts implemented, tested, and frozen.
+
+**Total Test Count**: 561 / 561 passing  
+**TypeScript**: 0 errors  
+**Build**: Success  
+**Parts 1–8**: Unchanged during Part 9 implementation  
+
+**Latest Commit**: `7b2c57f` (Implement Part 9 — Deterministic Decision Engine)
+
+**No further modifications to V1 core are permitted.**
 
 ---
 
