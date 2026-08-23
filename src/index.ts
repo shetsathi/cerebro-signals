@@ -47,3 +47,15 @@ export { SupabaseCandleRepository } from './persistence/supabase-candle-reposito
 // Adapter exports
 export { BrokerAdapter, BrokerCandle } from './adapters/broker-adapter.interface';
 export { AngelOneAdapter } from './adapters/angel-one-adapter';
+
+// Live pipeline exports
+export { AngelOneLiveClient, Tick } from './live/angel-one-live-client';
+export { TickAggregator } from './live/tick-aggregator';
+export { LiveOrchestrator, LiveOrchestratorConfig, SignalOutput } from './live/live-orchestrator';
+export { SignalPersistenceService } from './live/signal-persistence-service';
+export { TelegramService } from './live/telegram-service';
+export { PersistentServer } from './live/persistent-server';
+
+// Signal repository exports
+export { SignalRepository, SignalRecord, SavedSignal } from './persistence/signal-repository.interface';
+export { SupabaseSignalRepository } from './persistence/supabase-signal-repository';
