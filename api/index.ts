@@ -1,77 +1,83 @@
 /**
- * Vercel Serverless Function — Express API
- * Routes: /api/*, /dashboard/*, /
+ * Vercel Serverless Function — API Handler
  */
 
-import express, { Express, Request, Response, NextFunction } from 'express';
-import cors from 'cors';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseSignalRepository } from '../src/persistence/supabase-signal-repository';
 
-const app: Express = express();
+export default async (req: VercelRequest, res: VercelResponse) => {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Error handling
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err.message);
-  res.status(500).json({ error: err.message || 'Internal server error' });
-});
-
-// Initialize Supabase
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
-}
-
-const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
-const signalRepository = new SupabaseSignalRepository(supabase);
-
-// Health check
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// Get all signals
-app.get('/api/signals', async (req: Request, res: Response) => {
-  try {
-    const signals = await signalRepository.getAll();
-    res.json(signals);
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-});
 
-// Get signal by ID
-app.get('/api/signals/:id', async (req: Request, res: Response) => {
+  const { pathname } = new URL(req.url || '', `http://${req.headers.host}`);
+
   try {
-    const signal = await signalRepository.getById(req.params.id);
-    if (!signal) {
-      res.status(404).json({ error: 'Signal not found' });
+    // Health check
+    if (pathname === '/api/health') {
+      res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
-    res.json(signal);
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
 
-// Get active signals for symbol
-app.get('/api/signals-active/:symbol', async (req: Request, res: Response) => {
-  try {
-    const signals = await signalRepository.getBySymbol(req.params.symbol);
-    const active = signals.filter(s => s.status === 'ACTIVE' || s.status === 'GENERATED');
-    res.json(active);
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
+    // Initialize Supabase
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-export default app;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      res.status(500).json({ error: 'Supabase not configured' });
+      return;
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const signalRepository = new SupabaseSignalRepository(supabase);
+
+    // Get all signals
+    if (pathname === '/api/signals') {
+      const signals = await signalRepository.getAll();
+      res.status(200).json(signals);
+      return;
+    }
+
+    // Get signal by ID
+    if (pathname.match(/^\/api\/signals\/[a-z0-9-]+$/)) {
+      const id = pathname.split('/')[3];
+      const signal = await signalRepository.getById(id);
+      if (!signal) {
+        res.status(404).json({ error: 'Signal not found' });
+        return;
+      }
+      res.status(200).json(signal);
+      return;
+    }
+
+    // Get active signals for symbol
+    if (pathname.match(/^\/api\/signals-active\/[A-Z0-9]+$/)) {
+      const symbol = pathname.split('/')[3];
+      const signals = await signalRepository.getBySymbol(symbol);
+      const active = signals.filter(s => s.status === 'ACTIVE' || s.status === 'GENERATED');
+      res.status(200).json(active);
+      return;
+    }
+
+    // Dashboard
+    if (pathname === '/' || pathname === '/dashboard/index.html' || pathname.startsWith('/dashboard')) {
+      res.status(200).sendFile(require('path').join(process.cwd(), 'public/dashboard/index.html'));
+      return;
+    }
+
+    res.status(404).json({ error: 'Not found' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: (error as Error).message || 'Internal server error' });
+  }
+};
