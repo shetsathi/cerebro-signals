@@ -35,6 +35,11 @@ export { RiskStatus, Risk } from './domain/risk';
 export { RiskSnapshot } from './domain/risk-snapshot';
 export { RiskEngine, RiskEngineConfig } from './domain/risk-engine';
 
+// Decision Engine exports (Part 9)
+export { DecisionAction, Decision } from './domain/decision';
+export { DecisionSnapshot } from './domain/decision-snapshot';
+export { DecisionEngine, DecisionEngineConfig } from './domain/decision-engine';
+
 // Persistence exports
 export { CandleRepository } from './persistence/candle-repository.interface';
 export { SupabaseCandleRepository } from './persistence/supabase-candle-repository';
