@@ -1,11 +1,21 @@
 {
   "version": 2,
-  "buildCommand": "npm run build && cp -r public/* dist/public/",
-  "outputDirectory": "dist",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".",
+  "public": "public",
+  "functions": {
+    "dist/api/server.js": {
+      "maxDuration": 60
+    }
+  },
   "routes": [
     {
+      "src": "/public/(.*)",
+      "dest": "/public/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/src/api/server.ts"
+      "dest": "/dist/api/server.js"
     }
   ]
 }
