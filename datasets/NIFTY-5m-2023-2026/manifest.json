@@ -1,0 +1,33 @@
+{
+  "datasetId": "NIFTY-5m-2023-2026",
+  "source": "angel-one",
+  "instrument": "NIFTY 50",
+  "timeframe": "5m",
+  "dateRange": {
+    "fromDateUTC": "2023-08-21T03:40:00.000Z",
+    "toDateUTC": "2026-08-21T09:55:00.000Z"
+  },
+  "candleCount": 55642,
+  "timezone": "Asia/Kolkata",
+  "schema": {
+    "version": "1.0",
+    "fields": [
+      "symbol",
+      "timeframe",
+      "openTimeUTC",
+      "closeTimeUTC",
+      "ohlc",
+      "status",
+      "knowledgeTimeUTC"
+    ]
+  },
+  "validation": {
+    "status": "WARNINGS",
+    "errorCount": 0,
+    "warningCount": 779,
+    "errors": []
+  },
+  "checksumSHA256": "263d08ee7b3a7d0ae06e54f8d634d4086061985284f546596eb3bced650ae318",
+  "importedAtUTC": "2026-08-21T18:10:48.977Z",
+  "normalizationVersion": "1.0"
+}
