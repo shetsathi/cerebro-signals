@@ -4,7 +4,15 @@ builder = "heroku"
 [deploy]
 startCommand = "npm run start:live"
 restartPolicyCondition = "on-failure"
-restartPolicyMaxRetries = 5
+restartPolicyMaxRetries = 3
+# Smart restart: only during market hours via health monitor
+# See: src/services/railway-health-monitor.ts
+
+[env]
+ENABLE_HEALTH_MONITOR = "true"
+NODE_ENV = "production"
 
 [docs]
-doc = "Cerebro Signals Phase 1 Live Pipeline — Persistent Server"
+doc = "Cerebro Signals Phase 1 Live Pipeline — Persistent Server
+Auto-restart enabled: Only during market hours (09:15-15:00 IST, Mon-Fri)
+Respects free tier limits (10 restarts/month)"
