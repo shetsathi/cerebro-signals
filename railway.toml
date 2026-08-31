@@ -1,0 +1,10 @@
+[build]
+builder = "heroku"
+
+[deploy]
+startCommand = "npm run start:live"
+restartPolicyCondition = "on-failure"
+restartPolicyMaxRetries = 5
+
+[docs]
+doc = "Cerebro Signals Phase 1 Live Pipeline — Persistent Server"
