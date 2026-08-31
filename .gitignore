@@ -4,6 +4,10 @@ dist/
 .env
 .env.local
 .env.*.local
+.env.deployment
+.env.*.deployment
+deploy*.js
+deploy*.sh
 .DS_Store
 *.swp
 *.swo

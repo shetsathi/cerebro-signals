@@ -14,6 +14,11 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseSignalRepository } from '../persistence/supabase-signal-repository';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 const port = process.env.PORT || 3000;
@@ -21,6 +26,10 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files (dashboard)
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath));
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
@@ -148,6 +157,13 @@ app.get('/api/signals-active/:symbol', async (req: Request, res: Response) => {
       error: (error as Error).message,
     });
   }
+});
+
+/**
+ * Serve dashboard at root
+ */
+app.get('/', (req: Request, res: Response) => {
+  res.sendFile(path.join(publicPath, 'dashboard', 'index.html'));
 });
 
 // Start server (if not in serverless environment)

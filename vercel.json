@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build && cp -r public/* dist/public/",
   "outputDirectory": "dist",
   "env": {
     "SUPABASE_URL": "@supabase_url",
@@ -14,12 +14,8 @@
   },
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/(.*)",
       "dest": "/src/api/server.ts"
-    },
-    {
-      "src": "/.*",
-      "dest": "/public/dashboard/index.html"
     }
   ]
 }
