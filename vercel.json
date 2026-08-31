@@ -2,5 +2,28 @@
   "version": 2,
   "framework": null,
   "buildCommand": "npm run build && cp -r public dist/",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "env": {
+    "SUPABASE_URL": "@SUPABASE_URL",
+    "SUPABASE_ANON_KEY": "@SUPABASE_ANON_KEY"
+  },
+  "functions": {
+    "dist/api/server.js": {
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/dist/api/server.js"
+    },
+    {
+      "src": "/public/(.*)",
+      "dest": "/public/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/api/server.js"
+    }
+  ]
 }
