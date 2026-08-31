@@ -16,3 +16,5 @@ deploy*.sh
 .vscode/
 *.ts~
 test-debug.mjs
+
+.vercel
