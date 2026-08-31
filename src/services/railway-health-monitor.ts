@@ -8,7 +8,7 @@
  */
 
 import { addMinutes, isMonday, isTuesday, isWednesday, isThursday, isFriday } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { utcToZonedTime } from 'date-fns-tz';
 
 interface HealthCheckResult {
   isHealthy: boolean;
@@ -30,7 +30,7 @@ class RailwayHealthMonitor {
    */
   private isMarketHours(): boolean {
     const now = new Date();
-    const istTime = toZonedTime(now, this.IST_TIMEZONE);
+    const istTime = utcToZonedTime(now, this.IST_TIMEZONE);
 
     // Check if weekday (Mon-Fri)
     const isWeekday =
@@ -57,9 +57,12 @@ class RailwayHealthMonitor {
    */
   private async checkHealth(): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const response = await fetch('http://localhost:3000/api/health', {
-        timeout: 5000,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       console.error('Health check failed:', error);
