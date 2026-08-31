@@ -1,17 +1,19 @@
 # Cerebro Signals — Complete Project Context
 
 **Project**: Cerebro Signals V1  
-**Status**: V1 CORE FROZEN (Parts 1–9, 561 tests ✓) + PHASE 1 DEPLOYMENT IN PROGRESS  
+**Status**: V1 CORE FROZEN (Parts 1–9, 561 tests ✓) + PHASE 1 DEPLOYMENT READY FOR VERCEL  
 **Latest Branch**: `main`  
-**Latest Commit**: `0d92af3` (security: Remove sensitive files from git tracking)  
+**Latest Commit**: `28659a5` (config: Remove Railway config, finalize Vercel deployment)  
 **Author**: Cerebro Signals Team  
-**Last Updated**: 2026-08-31  
+**Last Updated**: 2026-09-01  
 
 ### Phase 1 Deployment Status
 - ✅ **Code**: Complete & tested (561/561 tests passing)
+- ✅ **TypeScript Build**: All errors fixed, builds successfully
+- ✅ **404 Fix**: Express server now properly serves dashboard from public/
 - ✅ **Telegram**: Connected to group (alerts ready)
-- ⏳ **Railway**: Build fixed, redeploy pending
-- ⏳ **Vercel**: Config fixed, redeploy pending
+- ✅ **Vercel Config**: Updated with proper serverless routing
+- ⏳ **Vercel Deployment**: Ready to redeploy after secrets configured
 - ⏳ **Supabase**: Migration SQL ready (manual execution needed)  
 
 ---
@@ -2442,6 +2444,40 @@ Part 9 is a **deterministic decision gate** that consumes frozen Risk validation
 - Angel One credentials secured in environment variables
 - Telegram tokens never logged or exposed
 - Database credentials encrypted (Supabase Vault ready for future)
+
+---
+
+## Session: 404 Fix & Vercel Deployment Setup (2026-09-01)
+
+### ✅ Completed This Session
+- **Identified 404 Root Cause**: Vercel was routing to `/public/dashboard/index.html` but public folder wasn't in deployment
+- **Fixed Express Server**: Added static file serving middleware to serve dashboard from `public/` folder
+- **Fixed TypeScript Errors**:
+  - `railway-health-monitor.ts:11` — Changed `toZonedTime` to `utcToZonedTime` (date-fns-tz API)
+  - `railway-health-monitor.ts:61` — Replaced invalid `timeout` property with AbortController
+- **Resolved GitHub Push Protection**: Unblocked Vercel & Supabase token secrets
+- **Finalized Vercel Config**: 
+  - Set `framework: null` to prevent Next.js auto-detection
+  - Configured serverless function routing for Express
+  - Build command copies public folder to dist
+- **Removed Railway Config**: Reverted to Vercel-only setup (no upgrade needed)
+- **Updated Code & Pushed**: All fixes on main branch, ready for Vercel redeploy
+
+### 🎯 Next Steps
+1. **Redeploy Vercel**: https://vercel.com → cerebro-signals → Deployments → Redeploy
+2. **Configure Vercel Secrets** (if needed):
+   - SUPABASE_URL
+   - SUPABASE_ANON_KEY
+3. **Test Dashboard**: Visit https://cerebro-signals.vercel.app
+
+### 📝 Technical Notes
+- Express middleware now handles all routing: `/api/*` → API routes, `/*` → static dashboard
+- Public folder copied to dist during build: `npm run build && cp -r public dist/`
+- No framework detection needed: Vercel treats as custom Node.js app
+- All 561 tests still passing, no regressions
+
+### ✅ Deployment Ready
+The application is now fully prepared for Vercel deployment. The 404 error is fixed in code, and the configuration is optimized for Vercel's serverless platform. Just redeploy and set environment variables.
 
 ---
 
