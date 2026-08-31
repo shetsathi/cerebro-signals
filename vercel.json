@@ -2,12 +2,6 @@
   "version": 2,
   "buildCommand": "npm run build && cp -r public/* dist/public/",
   "outputDirectory": "dist",
-  "functions": {
-    "src/api/server.ts": {
-      "runtime": "@vercel/node@latest",
-      "maxDuration": 60
-    }
-  },
   "routes": [
     {
       "src": "/(.*)",
