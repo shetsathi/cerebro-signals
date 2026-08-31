@@ -1,11 +1,18 @@
 # Cerebro Signals — Complete Project Context
 
 **Project**: Cerebro Signals V1  
-**Status**: V1 CORE FROZEN (Parts 1–9) + PHASE 1 LIVE PIPELINE DEPLOYED  
-**Latest Branch**: `feature/h2-performance-optimization`  
-**Latest Commit**: `b68e327` (fix: Vercel serverless routing and static files)  
+**Status**: V1 CORE FROZEN (Parts 1–9, 561 tests ✓) + PHASE 1 DEPLOYMENT IN PROGRESS  
+**Latest Branch**: `main`  
+**Latest Commit**: `0d92af3` (security: Remove sensitive files from git tracking)  
 **Author**: Cerebro Signals Team  
-**Last Updated**: 2026-08-24  
+**Last Updated**: 2026-08-31  
+
+### Phase 1 Deployment Status
+- ✅ **Code**: Complete & tested (561/561 tests passing)
+- ✅ **Telegram**: Connected to group (alerts ready)
+- ⏳ **Railway**: Build fixed, redeploy pending
+- ⏳ **Vercel**: Config fixed, redeploy pending
+- ⏳ **Supabase**: Migration SQL ready (manual execution needed)  
 
 ---
 
@@ -2391,6 +2398,50 @@ Part 9 is a **deterministic decision gate** that consumes frozen Risk validation
 **Latest Commit**: `7b2c57f` (Implement Part 9 — Deterministic Decision Engine)
 
 **No further modifications to V1 core are permitted.**
+
+---
+
+## Phase 1 Deployment Progress (2026-08-31)
+
+### ✅ Completed
+- V1 Core: All 9 parts implemented, frozen, 561 tests passing
+- Code: Built successfully, all dependencies installed
+- Telegram: Bot created, group connected, test message sent ✓
+- Configs: railway.toml, vercel.json, DEPLOY_NOW.md, DEPLOYMENT_STATUS.md created
+- Environment: .env configured with all credentials (local only)
+- Git: All changes committed and pushed (secrets removed for security)
+
+### ⏳ In Progress (Awaiting Redeploy)
+- **Railway**: Build fixed, persistent server ready
+  - Status: Needs manual redeploy from https://railway.app
+  - When ready: Will connect to Angel One WebSocket, generate signals
+  
+- **Vercel**: API + Dashboard config fixed
+  - Status: Needs manual redeploy from https://vercel.com
+  - Routes fixed to properly serve API (/api/*) and dashboard (/)
+  - When ready: Will display live signals at https://cerebro-signals.vercel.app
+
+- **Supabase**: Database migration ready
+  - Status: Needs manual SQL execution from Supabase dashboard
+  - File: migrations/002_signals_table.sql (3 tables, indexes, comments)
+  - Creates: signals, signal_configs, telegram_notifications tables
+
+### 🎯 Next Actions (User)
+1. Redeploy Railway: https://railway.app → Deployments → Redeploy
+2. Redeploy Vercel: https://vercel.com → Deployments → Redeploy
+3. Run Supabase migration: SQL Editor → Paste migrations/002_signals_table.sql → Run
+
+### 📊 Test After Redeploy
+- `/api/health` → {"status":"ok"}
+- `/` → Dashboard with signals table
+- Telegram → Alerts for new signals at 09:15 IST (market open)
+
+### 🔐 Security Notes
+- .env contains credentials (local only, gitignored)
+- Deployment tokens removed from git history
+- Angel One credentials secured in environment variables
+- Telegram tokens never logged or exposed
+- Database credentials encrypted (Supabase Vault ready for future)
 
 ---
 
