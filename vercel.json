@@ -6,17 +6,19 @@
     "SUPABASE_URL": "@supabase_url",
     "SUPABASE_ANON_KEY": "@supabase_anon_key"
   },
+  "functions": {
+    "src/api/server.ts": {
+      "runtime": "@vercel/node@latest",
+      "maxDuration": 60
+    }
+  },
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.ts"
+      "dest": "/src/api/server.ts"
     },
     {
-      "src": "/dashboard/(.*)",
-      "dest": "/public/dashboard/index.html"
-    },
-    {
-      "src": "/",
+      "src": "/.*",
       "dest": "/public/dashboard/index.html"
     }
   ]
