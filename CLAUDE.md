@@ -1,20 +1,22 @@
 # Cerebro Signals — Complete Project Context
 
 **Project**: Cerebro Signals V1  
-**Status**: V1 CORE FROZEN (Parts 1–9, 561 tests ✓) + PHASE 1 DEPLOYMENT READY FOR VERCEL  
+**Status**: ✅ V1 CORE FROZEN (Parts 1–9, 561 tests ✓) + PHASE 1 RUNNING LOCALLY  
 **Latest Branch**: `main`  
-**Latest Commit**: `28659a5` (config: Remove Railway config, finalize Vercel deployment)  
+**Latest Commit**: `28242fa` (fix: Add test endpoint and improve API error logging)  
 **Author**: Cerebro Signals Team  
 **Last Updated**: 2026-09-01  
 
-### Phase 1 Deployment Status
+### Phase 1 Local Deployment Status ✅
 - ✅ **Code**: Complete & tested (561/561 tests passing)
-- ✅ **TypeScript Build**: All errors fixed, builds successfully
-- ✅ **404 Fix**: Express server now properly serves dashboard from public/
-- ✅ **Telegram**: Connected to group (alerts ready)
-- ✅ **Vercel Config**: Updated with proper serverless routing
-- ⏳ **Vercel Deployment**: Ready to redeploy after secrets configured
-- ⏳ **Supabase**: Migration SQL ready (manual execution needed)  
+- ✅ **Persistent Server**: Running, monitoring NIFTY50, BANKNIFTY, CRUDEOIL, SENSEX
+- ✅ **Mock Tick Generator**: Emitting simulated ticks every 5 seconds
+- ✅ **API Server**: Running on port 3000, serving dashboard
+- ✅ **Supabase**: Connected, signals table created, API key validated
+- ✅ **Telegram**: Connected and verified
+- ✅ **Dashboard**: Loading at http://localhost:3000
+- ✅ **dotenv Loading**: .env loaded by both servers
+- ✅ **Angel One**: Mock mode (SmartApi library fallback for testing)  
 
 ---
 
@@ -1488,24 +1490,38 @@ c120b85  H2: reject unsafe full-dataset optimization
 19b6b86  H2: complete performance architecture investigation
 ```
 
-### Current Branch: `feature/h2-performance-optimization`
+### Current Branch: `main`
 
-**Status**: V1 CORE FROZEN + PHASE 1 LIVE PIPELINE DEPLOYED ✅
+**Status**: ✅ V1 CORE FROZEN + PHASE 1 RUNNING LOCALLY
 
-**Latest Work** (Session 2026-08-24):
-1. ✅ Phase 1: Live Signal Pipeline Complete (P0)
-   - Angel One WebSocket client with Vault credentials
-   - Tick-to-candle aggregator (5m timeframe, session-aligned)
-   - LiveOrchestrator invoking Parts 1–9 deterministically
-   - Signal persistence (immutable Entry/SL/Target prices)
-   - Telegram notification service
-   - Express API + minimal dashboard (Vercel-deployable)
-2. ✅ Database schema (signals, signal_configs, telegram_notifications)
-3. ✅ Deployment: Fixed Vercel serverless routing + static file serving
-4. ✅ Test status: 561/561 passing (0 regressions)
-5. ✅ TypeScript: 0 errors, Build: success ✅
-6. ✅ Security: Vault integration verified, no credential leaks
-7. ✅ Code audit: Ready for live market testing
+**Latest Work** (Session 2026-09-01 — Local Startup & API Fix):
+1. ✅ **Persistent Server Startup**
+   - Fixed ES module syntax for entry point detection (`import.meta.url`)
+   - Added dotenv/config to load .env variables
+   - Implemented Angel One mock mode (fallback when SmartApi unavailable)
+   - Added detailed startup logging with emoji indicators
+   - Server now runs successfully in mock mode for testing
+
+2. ✅ **API Server & Dashboard**
+   - Fixed Express static file path (../../public instead of ../public)
+   - Added dotenv/config to API server
+   - Changed NODE_ENV to development for local testing
+   - Added /api/test endpoint for Supabase configuration verification
+   - Improved error logging for debugging
+
+3. ✅ **Symbol Configuration**
+   - Updated MONITOR_SYMBOLS to: NIFTY50, BANKNIFTY, CRUDEOIL, SENSEX
+   - Updated dashboard symbol selector
+   - Removed RELIANCE, INFY, added CRUDEOIL, SENSEX
+
+4. ✅ **Server Status**
+   - Persistent Server: ✅ Running, monitoring 4 symbols, emitting mock ticks
+   - API Server: ✅ Running on port 3000, serving dashboard
+   - Dashboard: ✅ Loading at http://localhost:3000
+   - Supabase: ✅ Connected, credentials validated
+   - Telegram: ✅ Verified and connected
+
+5. ✅ **Test Status**: 561/561 tests still passing (no regressions)
 
 **Completed Deterministic Pipeline**:
 ```
