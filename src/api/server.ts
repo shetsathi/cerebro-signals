@@ -10,6 +10,7 @@
  * GET /api/signals/:id — Get signal details
  */
 
+import 'dotenv/config';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
@@ -28,7 +29,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files (dashboard)
-const publicPath = path.join(__dirname, '../public');
+const publicPath = path.join(__dirname, '../../public');
 app.use(express.static(publicPath));
 
 // Error handling middleware
