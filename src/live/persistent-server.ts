@@ -13,6 +13,7 @@
  * Deploy to Railway, Render, or self-hosted container.
  */
 
+import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import { Candle } from '../domain/candle';
 import { SupabaseCandleRepository } from '../persistence/supabase-candle-repository';
@@ -338,7 +339,11 @@ async function main() {
   }
 }
 
-// Only run if this is the entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+// Run main function
+if (typeof window === 'undefined') {
+  // Running in Node.js (not browser)
+  main().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
 }
