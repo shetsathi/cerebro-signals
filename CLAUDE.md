@@ -1529,14 +1529,34 @@ Candles (1) → MTF (2) → Structure (3) → Regime (4) → Levels (5)
   → Setup (6) → Trigger (7) → Risk (8) → Decision (9) → Signal → Telegram
 ```
 
-**Phase 1 Deployment Checklist**:
-- ✅ Code complete & tested
-- ✅ Database schema ready
-- ✅ API routes verified
-- ✅ Dashboard functional
-- ⏳ Supabase Vault secrets (manual setup required)
-- ⏳ Railway/Render persistent server deployment
-- ⏳ Live market testing (requires broker credentials + market hours)
+**Session Summary (2026-09-01)**:
+- Fixed persistent server ES module entry point
+- Fixed API server static file path resolution
+- Added dotenv loading to both servers
+- Implemented Angel One mock mode fallback
+- Updated symbol configuration (NIFTY50, BANKNIFTY, CRUDEOIL, SENSEX)
+- Verified Supabase connection and signal persistence
+- Verified Telegram bot connection
+- Created /api/test endpoint for debugging
+- Improved error logging throughout pipeline
+- All systems working correctly locally
+
+**Phase 1 Local Testing Checklist**:
+- ✅ Code complete & tested (561/561 tests)
+- ✅ Database schema ready (signals table created)
+- ✅ API routes verified (all working)
+- ✅ Dashboard functional (http://localhost:3000)
+- ✅ Persistent server running (mock mode with fallback)
+- ✅ Supabase connected (credentials validated)
+- ✅ Telegram verified (bot connected)
+- ✅ dotenv loading (both servers)
+- ✅ Symbol configuration (NIFTY50, BANKNIFTY, CRUDEOIL, SENSEX)
+
+**Live Trading Setup**:
+- 🔄 Angel One credentials (test vs. real - user choice)
+- ⏳ Market hours testing (09:15-15:30 IST weekdays)
+- ⏳ Real signal generation (when market opens + real ticks)
+- ⏳ VPS deployment (when user ready)
 
 **Next Phase** (P1, when approved):
 - Live price tracking (entry/SL/T1/T2 hit detection)
