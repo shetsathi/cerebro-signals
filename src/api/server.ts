@@ -60,6 +60,21 @@ app.get('/api/health', (req: Request, res: Response) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
+    servers: {
+      persistent: 'Check persistent server terminal',
+      api: 'running ✅',
+    },
+  });
+});
+
+/**
+ * Test endpoint
+ */
+app.get('/api/test', (req: Request, res: Response) => {
+  res.json({
+    test: 'ok',
+    supabaseUrl: supabaseUrl ? 'configured ✅' : 'missing ❌',
+    supabaseKey: supabaseAnonKey ? 'configured ✅' : 'missing ❌',
   });
 });
 
@@ -72,7 +87,11 @@ app.get('/api/signals', async (req: Request, res: Response) => {
     const symbol = (req.query.symbol as string) || 'NIFTY50';
     const limit = parseInt((req.query.limit as string) || '50');
 
+    console.log(`[API] Fetching signals for ${symbol}...`);
+
     const signals = await signalRepository.getBySymbol(symbol, limit);
+
+    console.log(`[API] Found ${signals.length} signals`);
 
     res.json({
       symbol,
@@ -91,8 +110,10 @@ app.get('/api/signals', async (req: Request, res: Response) => {
       })),
     });
   } catch (error) {
+    console.error('[API] Error fetching signals:', error);
     res.status(500).json({
       error: (error as Error).message,
+      debug: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined,
     });
   }
 });
