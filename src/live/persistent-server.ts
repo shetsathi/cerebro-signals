@@ -51,9 +51,10 @@ export class PersistentServer {
    */
   async start(): Promise<void> {
     try {
-      console.log('Starting Cerebro Signals persistent server...');
+      console.log('🚀 Starting Cerebro Signals persistent server...');
 
       // Initialize Supabase
+      console.log('📡 Initializing Supabase...');
       const supabase = createClient(this.config.supabaseUrl, this.config.supabaseAnonKey);
       const supabaseAdmin = createClient(
         this.config.supabaseUrl,
@@ -61,13 +62,16 @@ export class PersistentServer {
       );
 
       // Initialize repositories
+      console.log('📚 Initializing repositories...');
       this.candleRepository = new SupabaseCandleRepository(supabase);
       const signalRepository = new SupabaseSignalRepository(supabase);
 
       // Initialize services
+      console.log('🔧 Initializing services...');
       this.signalPersistence = new SignalPersistenceService(signalRepository);
 
       if (this.config.telegramBotToken && this.config.telegramChatId) {
+        console.log('📱 Initializing Telegram...');
         this.telegramService = new TelegramService(
           this.config.telegramBotToken,
           this.config.telegramChatId,
@@ -75,18 +79,23 @@ export class PersistentServer {
 
         // Test Telegram connection
         const telegramOk = await this.telegramService.testConnection();
-        if (!telegramOk) {
-          console.warn('Telegram connection failed. Signals will persist but alerts won\'t send.');
+        if (telegramOk) {
+          console.log('✅ Telegram connection OK');
+        } else {
+          console.warn('⚠️  Telegram connection failed. Signals will persist but alerts won\'t send.');
         }
       }
 
       // Initialize Angel One WebSocket
+      console.log('🔗 Initializing Angel One WebSocket...');
       this.angelOneClient = new AngelOneLiveClient(supabaseAdmin);
 
       // Set up event handlers
+      console.log('🎯 Setting up event handlers...');
       this.setupAngelOneEventHandlers();
 
       // Initialize tick aggregators and orchestrators for each symbol
+      console.log('⚙️  Initializing tick aggregators and orchestrators...');
       for (const symbol of this.config.symbols) {
         const timeframes = this.config.timeframes || [TimeframeValue.FIVE_MIN];
 
@@ -106,17 +115,22 @@ export class PersistentServer {
       }
 
       // Connect to Angel One
+      console.log('🔌 Connecting to Angel One...');
       await this.angelOneClient.connect();
+      console.log('✅ Angel One connected!');
 
       // Subscribe to symbols
+      console.log('👁️  Subscribing to symbols...');
       for (const symbol of this.config.symbols) {
         await this.angelOneClient.subscribe(symbol);
       }
 
-      console.log('Persistent server started successfully');
-      console.log(`Monitoring symbols: ${this.config.symbols.join(', ')}`);
+      console.log('✅ Persistent server started successfully');
+      console.log(`📊 Monitoring symbols: ${this.config.symbols.join(', ')}`);
+      console.log('🔄 Waiting for market hours (09:15 - 15:30 IST) to generate signals...');
     } catch (error) {
-      console.error('Failed to start persistent server:', (error as Error).message);
+      console.error('❌ Failed to start persistent server:', (error as Error).message);
+      console.error((error as Error).stack);
       throw error;
     }
   }

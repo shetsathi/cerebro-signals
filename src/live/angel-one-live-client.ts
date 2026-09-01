@@ -69,6 +69,7 @@ export class AngelOneLiveClient extends EventEmitter {
     password: string;
     totpSecret: string;
   }> {
+    // Try Vault first (production), fall back to env vars (development)
     try {
       // Query vault.decrypted_secrets for Angel One credentials
       // NOTE: This requires service_role key, which should only be available to backend
@@ -124,9 +125,24 @@ export class AngelOneLiveClient extends EventEmitter {
         totpSecret: totpData.secret,
       };
     } catch (error) {
-      // Log error without exposing credential values
-      console.error('Vault credential loading failed:', (error as Error).message);
-      throw error;
+      // Fall back to environment variables (development mode)
+      console.log('Vault not available, falling back to environment variables');
+
+      const apiKey = process.env.ANGEL_ONE_API_KEY;
+      const clientCode = process.env.ANGEL_ONE_CLIENT_CODE;
+      const password = process.env.ANGEL_ONE_PASSWORD;
+      const totpSecret = process.env.ANGEL_ONE_TOTP_SECRET;
+
+      if (!apiKey || !clientCode || !password || !totpSecret) {
+        throw new Error('Missing Angel One credentials in environment variables');
+      }
+
+      return {
+        apiKey,
+        clientCode,
+        password,
+        totpSecret,
+      };
     }
   }
 
