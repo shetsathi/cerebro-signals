@@ -2,26 +2,17 @@
  * Angel One Live WebSocket Client
  *
  * Real-time LTP stream from Angel One SmartAPI.
+ * Uses official smartapi-typescript SDK for WebSocket connection.
  * Loads credentials securely from Supabase Vault.
  * Emits 'tick' events with price data.
- *
- * NOTE: Currently using realistic mock prices (smartapi-javascript is a stub).
- * To enable REAL Angel One prices:
- * 1. Get the official Angel One SmartAPI SDK from Angel One
- * 2. Replace smartapi-javascript with real SDK
- * 3. Implement login() and subscription methods
- * 4. Remove mock tick generation below
  *
  * CRITICAL: Never expose credentials in logs or errors.
  */
 
 import { EventEmitter } from 'events';
 import { SupabaseClient } from '@supabase/supabase-js';
-import * as SmartApiModule from 'smartapi-javascript';
+import { SmartAPI } from 'smartapi-typescript';
 import { totp } from 'otplib';
-
-// SmartAPI is exported as SmartApiModule.default.SmartAPI (capital API)
-const SmartApi = (SmartApiModule as any).default?.SmartAPI;
 
 export interface Tick {
   symbol: string;
@@ -51,55 +42,63 @@ export class AngelOneLiveClient extends EventEmitter {
     try {
       const credentials = await this.loadCredentialsFromVault();
 
-      // Try to initialize SmartApi with loaded credentials
+      // Initialize SmartAPI with real SDK
       try {
-        this.smartApi = new (SmartApi as any)({
-          auth_token: '', // Will be obtained after login
-          api_key: credentials.apiKey,
-          client_code: credentials.clientCode,
+        console.log('🔐 Authenticating with Angel One...');
+
+        this.smartApi = new SmartAPI({
+          apiKey: credentials.apiKey,
+          clientId: credentials.clientCode,
+          password: credentials.password,
+          totpSecret: credentials.totpSecret,
         });
 
-        // Attempt login
+        // Perform real login
         await this.login(credentials);
+
+        // Set up WebSocket event handlers
+        this.setupWebSocketHandlers();
+
+        this.connected = true;
+        this.reconnectAttempts = 0;
+        console.log('✅ Connected to Angel One WebSocket');
+        this.emit('connected');
       } catch (smartApiError) {
-        console.warn('SmartApi initialization failed, using mock mode:', (smartApiError as Error).message);
-        console.log('⚠️  Running in mock mode - no real Angel One connection');
-        // Create a mock SmartApi object for testing
-        this.smartApi = {
-          setAuthToken: () => {},
-          subscribe: (symbol: string) => {
-            console.log(`[MOCK] Subscribed to ${symbol}`);
-            // Emit mock ticks for testing
-            // Use realistic base prices per symbol
-            const basePrices: Record<string, number> = {
-              'NIFTY50': 23500,
-              'BANKNIFTY': 47500,
-              'CRUDEOIL': 7200,
-              'SENSEX': 78000,
-            };
-            let lastPrice = basePrices[symbol] || 2500;
-
-            setInterval(() => {
-              // Realistic price movement: ±0.5% per tick
-              const change = (Math.random() - 0.5) * lastPrice * 0.005;
-              lastPrice = Math.max(lastPrice + change, basePrices[symbol] * 0.95);
-
-              this.emit('tick', {
-                symbol,
-                ltp: Math.round(lastPrice * 100) / 100,
-                timestamp: new Date(),
-              });
-            }, 5000); // Mock tick every 5s
-          },
-        };
+        throw new Error(`SmartAPI connection failed: ${(smartApiError as Error).message}`);
       }
-
-      this.connected = true;
-      this.reconnectAttempts = 0;
-      this.emit('connected');
     } catch (error) {
       this.handleConnectionError(error as Error);
     }
+  }
+
+  /**
+   * Set up WebSocket event handlers
+   */
+  private setupWebSocketHandlers(): void {
+    if (!this.smartApi) return;
+
+    // Handle incoming tick data
+    (this.smartApi as any).on('tick', (data: any) => {
+      try {
+        this.onTick(data);
+      } catch (error) {
+        console.error('Error processing tick:', (error as Error).message);
+      }
+    });
+
+    // Handle connection events
+    (this.smartApi as any).on('connect', () => {
+      console.log('✅ WebSocket connected to Angel One');
+    });
+
+    (this.smartApi as any).on('disconnect', () => {
+      console.warn('⚠️  WebSocket disconnected from Angel One');
+      this.connected = false;
+    });
+
+    (this.smartApi as any).on('error', (error: any) => {
+      console.error('WebSocket error:', error);
+    });
   }
 
   /**
@@ -190,7 +189,7 @@ export class AngelOneLiveClient extends EventEmitter {
   }
 
   /**
-   * Login to Angel One
+   * Login to Angel One with TOTP
    */
   private async login(credentials: {
     apiKey: string;
@@ -199,32 +198,34 @@ export class AngelOneLiveClient extends EventEmitter {
     totpSecret: string;
   }): Promise<void> {
     if (!this.smartApi) {
-      throw new Error('SmartApi not initialized');
+      throw new Error('SmartAPI not initialized');
     }
 
     try {
-      // Generate TOTP from secret
+      // Generate 6-digit TOTP code from secret
       const totpCode = totp.generate(credentials.totpSecret);
+      console.log('🔑 Generated TOTP code for authentication');
 
-      // Login
+      // Call login API
       const loginResult = await (this.smartApi as any).login({
         clientcode: credentials.clientCode,
         password: credentials.password,
         totp: totpCode,
       });
 
-      if (!loginResult || !loginResult.data || !loginResult.data.jwtToken) {
-        throw new Error('Login failed: No auth token received');
+      // Validate login response
+      if (!loginResult?.data?.jwtToken) {
+        throw new Error(`Login failed: ${loginResult?.message || 'No JWT token received'}`);
       }
 
-      console.log('Angel One login successful');
+      console.log('✅ Angel One login successful');
 
-      // Store auth token (do not log it)
-      if (this.smartApi) {
-        this.smartApi.setAuthToken(loginResult.data.jwtToken);
-      }
+      // Update SmartAPI with authentication token
+      (this.smartApi as any).feed_token = loginResult.data.feedToken || loginResult.data.jwtToken;
+      (this.smartApi as any).auth_token = loginResult.data.jwtToken;
+
     } catch (error) {
-      console.error('Angel One login error:', (error as Error).message);
+      console.error('❌ Angel One login error:', (error as Error).message);
       throw error;
     }
   }
@@ -238,12 +239,15 @@ export class AngelOneLiveClient extends EventEmitter {
     }
 
     try {
-      // SmartApi WebSocket subscription
-      this.smartApi.subscribe(symbol);
+      // Subscribe to Angel One LTP feed
+      await (this.smartApi as any).subscribe(symbol, {
+        mode: 'LTP', // Last Traded Price only (lightweight)
+      });
+
       this.subscriptions.add(symbol);
-      console.log(`Subscribed to ${symbol}`);
+      console.log(`✅ Subscribed to ${symbol} (LTP mode)`);
     } catch (error) {
-      console.error(`Failed to subscribe to ${symbol}:`, (error as Error).message);
+      console.error(`❌ Failed to subscribe to ${symbol}:`, (error as Error).message);
       throw error;
     }
   }
@@ -255,28 +259,35 @@ export class AngelOneLiveClient extends EventEmitter {
     if (!this.smartApi) return;
 
     try {
-      this.smartApi.unsubscribe(symbol);
+      await (this.smartApi as any).unsubscribe?.(symbol);
       this.subscriptions.delete(symbol);
-      console.log(`Unsubscribed from ${symbol}`);
+      console.log(`✅ Unsubscribed from ${symbol}`);
     } catch (error) {
       console.error(`Failed to unsubscribe from ${symbol}:`, (error as Error).message);
     }
   }
 
   /**
-   * Handle incoming tick from WebSocket
+   * Handle incoming tick from SmartAPI WebSocket
    * Emit 'tick' event for aggregator to process
    */
   onTick(tickData: any): void {
     try {
+      // Parse SmartAPI tick data format
       const tick: Tick = {
-        symbol: tickData.token || tickData.symbol,
-        ltp: parseFloat(tickData.ltp),
+        symbol: tickData.symbol || tickData.token || tickData.name,
+        ltp: parseFloat(tickData.ltp || tickData.lastPrice || 0),
         bid: tickData.bid ? parseFloat(tickData.bid) : undefined,
         ask: tickData.ask ? parseFloat(tickData.ask) : undefined,
-        timestamp: new Date(),
+        timestamp: new Date(tickData.timestamp || Date.now()),
         volume: tickData.volume ? parseInt(tickData.volume) : undefined,
       };
+
+      // Validate tick
+      if (!tick.symbol || !tick.ltp || tick.ltp <= 0) {
+        console.warn('⚠️  Invalid tick data received:', tickData);
+        return;
+      }
 
       this.emit('tick', tick);
     } catch (error) {
@@ -288,20 +299,20 @@ export class AngelOneLiveClient extends EventEmitter {
    * Handle connection errors with reconnect logic
    */
   private handleConnectionError(error: Error): void {
-    console.error('Connection error:', error.message);
+    console.error('❌ Connection error:', error.message);
 
     this.connected = false;
     this.reconnectAttempts++;
 
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const delaySeconds = Math.pow(2, this.reconnectAttempts); // Exponential backoff
-      console.log(`Reconnecting in ${delaySeconds}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      console.log(`⏳ Reconnecting in ${delaySeconds}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
       setTimeout(() => {
-        this.connect();
+        this.connect().catch(err => console.error('Reconnection failed:', err));
       }, delaySeconds * 1000);
     } else {
-      console.error('Max reconnection attempts reached. Giving up.');
+      console.error('❌ Max reconnection attempts reached. Check credentials and network.');
       this.emit('error', error);
     }
   }
@@ -312,12 +323,17 @@ export class AngelOneLiveClient extends EventEmitter {
   async disconnect(): Promise<void> {
     if (this.smartApi) {
       try {
-        for (const symbol of this.subscriptions) {
+        // Unsubscribe from all symbols
+        for (const symbol of Array.from(this.subscriptions)) {
           await this.unsubscribe(symbol);
         }
-        // SmartApi disconnect if available
+
+        // Close WebSocket connection
+        await (this.smartApi as any).disconnect?.();
+
         this.connected = false;
-        console.log('Disconnected from Angel One');
+        this.smartApi = null;
+        console.log('✅ Disconnected from Angel One');
       } catch (error) {
         console.error('Error disconnecting:', (error as Error).message);
       }

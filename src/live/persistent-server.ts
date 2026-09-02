@@ -327,7 +327,7 @@ async function main() {
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
     telegramChatId: process.env.TELEGRAM_CHAT_ID,
-    symbols: (process.env.MONITOR_SYMBOLS || 'NIFTY50').split(','),
+    symbols: (process.env.MONITOR_SYMBOLS || 'NIFTY50').split(',').map(s => s.trim()),
     timeframes: [TimeframeValue.FIVE_MIN],
   };
 
