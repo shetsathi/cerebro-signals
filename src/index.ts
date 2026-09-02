@@ -59,3 +59,25 @@ export { PersistentServer } from './live/persistent-server';
 // Signal repository exports
 export { SignalRepository, SignalRecord, SavedSignal } from './persistence/signal-repository.interface';
 export { SupabaseSignalRepository } from './persistence/supabase-signal-repository';
+
+// Phase 2: Trade Execution exports
+export { TradeExecution, TradeStatus, ExitType } from './domain/trade-execution';
+export {
+  TradeExecutionRepository,
+  TradeExecutionRecord,
+  SavedTradeExecution,
+} from './persistence/trade-execution-repository.interface';
+export { SupabaseTradeExecutionRepository } from './persistence/supabase-trade-execution-repository';
+
+// Phase 2: Performance Metrics exports
+export { PerformanceMetrics } from './domain/performance-metrics';
+export {
+  PerformanceMetricsRepository,
+  PerformanceMetricsRecord,
+  SavedPerformanceMetrics,
+} from './persistence/performance-metrics-repository.interface';
+export { SupabasePerformanceMetricsRepository } from './persistence/supabase-performance-metrics-repository';
+
+// Phase 2: Trade Detection & Performance Calculation
+export { TradeDetectionService } from './live/trade-detection-service';
+export { PerformanceCalculator } from './live/performance-calculator';
