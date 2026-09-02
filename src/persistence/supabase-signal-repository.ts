@@ -34,6 +34,10 @@ interface SignalRow {
   setup_type?: string;
   trigger_type?: string;
   regime_type?: string;
+  // Conviction fields (Phase 3)
+  conviction_score?: number;
+  conviction_level?: string;
+  conviction_factors?: Record<string, number>;
 }
 
 export class SupabaseSignalRepository implements SignalRepository {
@@ -64,6 +68,10 @@ export class SupabaseSignalRepository implements SignalRepository {
       setup_type: signal.setup_type,
       trigger_type: signal.trigger_type,
       regime_type: signal.regime_type,
+      // Conviction fields
+      conviction_score: signal.conviction_score,
+      conviction_level: signal.conviction_level,
+      conviction_factors: signal.conviction_factors,
     };
 
     const { data, error } = await this.supabase
@@ -177,6 +185,10 @@ export class SupabaseSignalRepository implements SignalRepository {
       setup_type: row.setup_type,
       trigger_type: row.trigger_type,
       regime_type: row.regime_type,
+      // Conviction fields
+      conviction_score: row.conviction_score,
+      conviction_level: row.conviction_level,
+      conviction_factors: row.conviction_factors,
     };
   }
 }

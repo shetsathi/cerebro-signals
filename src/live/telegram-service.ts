@@ -7,6 +7,8 @@
  */
 
 import { SignalOutput } from './live-orchestrator';
+import { SignalFilterService } from './signal-filter-service';
+import { ConvictionLevel } from '../domain/conviction-calculator';
 
 export class TelegramService {
   private botToken: string;
@@ -19,13 +21,31 @@ export class TelegramService {
   }
 
   /**
-   * Send signal alert
-   * Returns true if successful, false if failed
+   * Send signal alert (only for high-conviction signals)
+   * Returns true if successful, false if failed or conviction too low
    */
   async sendSignalAlert(signal: SignalOutput): Promise<boolean> {
+    // Phase 3: Check conviction before sending alert
+    const filter = SignalFilterService.filterSignal(
+      signal.convictionScore,
+      signal.convictionLevel,
+      signal.riskRewardRatio,
+      signal.setupType,
+    );
+
+    if (!filter.shouldAlert) {
+      console.log(
+        `[${signal.symbol}] Signal ${signal.action} - No alert: ${filter.alertReason}`,
+      );
+      return false;
+    }
+
     try {
-      const message = this.formatSignalMessage(signal);
+      const message = this.formatSignalMessage(signal, filter);
       await this.sendMessage(message);
+      console.log(
+        `[${signal.symbol}] Signal ${signal.action} - Alert sent: ${filter.alertReason}`,
+      );
       return true;
     } catch (error) {
       console.error('Failed to send signal alert:', (error as Error).message);
@@ -37,7 +57,10 @@ export class TelegramService {
   /**
    * Format signal as Telegram message
    */
-  private formatSignalMessage(signal: SignalOutput): string {
+  private formatSignalMessage(
+    signal: SignalOutput,
+    filter: ReturnType<typeof SignalFilterService.filterSignal>,
+  ): string {
     const action = signal.action === 'LONG' ? '📈 LONG' : '📉 SHORT';
     const symbol = signal.symbol;
     const entry = signal.entryPrice.toFixed(2);
@@ -45,14 +68,16 @@ export class TelegramService {
     const target = signal.targetPrice ? signal.targetPrice.toFixed(2) : 'N/A';
     const rr = signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : 'N/A';
     const time = new Date(signal.evaluationTimeUTC).toISOString().slice(11, 19);
+    const conviction = signal.convictionScore ? `${signal.convictionScore}/100` : 'N/A';
 
     return (
-      `🤖 CEREBRO SIGNAL\n\n` +
+      `${filter.displayMarker} CEREBRO SIGNAL\n\n` +
       `${action}: ${symbol}\n\n` +
       `Entry: ${entry}\n` +
       `SL: ${sl}\n` +
       `Target: ${target}\n` +
-      `R:R: ${rr}x\n\n` +
+      `R:R: ${rr}x\n` +
+      `Conviction: ${conviction} (${signal.convictionLevel})\n\n` +
       `Generated: ${time}`
     );
   }

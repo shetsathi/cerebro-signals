@@ -25,6 +25,7 @@ import { DecisionEngine, DecisionEngineConfig } from '../domain/decision-engine'
 import { Decision, DecisionAction } from '../domain/decision';
 import { Risk, RiskStatus } from '../domain/risk';
 import { StructureConfig } from '../domain/structure-config';
+import { ConvictionCalculator } from '../domain/conviction-calculator';
 
 export interface SignalOutput {
   decision: Decision;
@@ -46,6 +47,11 @@ export interface SignalOutput {
   setupType?: string;       // Setup type from Part 6
   triggerType?: string;     // Trigger type from Part 7
   regimeType?: string;      // Regime type at signal time
+
+  // Quality/Conviction fields (Phase 3)
+  convictionScore?: number;     // 0-100 signal quality score
+  convictionLevel?: string;     // LOW, MEDIUM, HIGH
+  convictionFactors?: Record<string, number>;  // Breakdown: {regime: X, setup: Y, ...}
 }
 
 export interface LiveOrchestratorConfig {
@@ -180,6 +186,15 @@ export class LiveOrchestrator extends EventEmitter {
             // Find the corresponding setup for setup_type
             const setup = setupSnapshot.getAllSetups().find(s => s.setupId === risk.setupId);
 
+            // Calculate conviction score (Phase 3)
+            const conviction = ConvictionCalculator.calculateConviction(
+              regimeSnapshot.currentRegime || null,
+              setup?.setupType?.toString() || null,
+              trigger?.triggerType?.toString() || null,
+              risk.riskRewardRatio,
+              risk.status,
+            );
+
             const signal: SignalOutput = {
               decision,
               risk,
@@ -200,7 +215,18 @@ export class LiveOrchestrator extends EventEmitter {
               setupType: setup ? setup.setupType : undefined,
               triggerType: trigger ? trigger.triggerType : undefined,
               regimeType: regimeSnapshot.currentRegime ? regimeSnapshot.currentRegime : undefined,
+
+              // Conviction fields
+              convictionScore: conviction.score,
+              convictionLevel: conviction.level,
+              convictionFactors: conviction.factors as unknown as Record<string, number>,
             };
+
+            // Log conviction score
+            console.log(
+              `[${symbol}] Signal ${signal.action} - Conviction: ${ConvictionCalculator.formatScore(conviction.score, conviction.level)} ` +
+              `(${ConvictionCalculator.formatFactors(conviction.factors)})`,
+            );
 
             this.emit('decision', signal);
           }

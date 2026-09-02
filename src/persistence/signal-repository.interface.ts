@@ -35,6 +35,11 @@ export interface SignalRecord {
   setup_type?: string;          // Setup qualification type (PULLBACK_LONG, etc.)
   trigger_type?: string;        // Trigger confirmation type (BULLISH_BREAKOUT, etc.)
   regime_type?: string;         // Market regime at signal time (UPTREND, DOWNTREND, RANGE)
+
+  // Quality/Conviction columns (Phase 3)
+  conviction_score?: number;    // 0-100 signal quality score
+  conviction_level?: string;    // LOW, MEDIUM, HIGH
+  conviction_factors?: Record<string, number>;  // {regime: X, setup: Y, trigger: Z, ratio: W}
 }
 
 export interface SavedSignal extends SignalRecord {

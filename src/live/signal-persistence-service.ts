@@ -51,6 +51,11 @@ export class SignalPersistenceService {
         setup_type: signal.setupType,
         trigger_type: signal.triggerType,
         regime_type: signal.regimeType,
+
+        // Conviction fields (Phase 3)
+        conviction_score: signal.convictionScore,
+        conviction_level: signal.convictionLevel,
+        conviction_factors: signal.convictionFactors,
       };
 
       // Persist

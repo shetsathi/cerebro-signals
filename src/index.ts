@@ -81,3 +81,7 @@ export { SupabasePerformanceMetricsRepository } from './persistence/supabase-per
 // Phase 2: Trade Detection & Performance Calculation
 export { TradeDetectionService } from './live/trade-detection-service';
 export { PerformanceCalculator } from './live/performance-calculator';
+
+// Phase 3: Signal Quality Filtering
+export { ConvictionCalculator, ConvictionLevel } from './domain/conviction-calculator';
+export { SignalFilterService } from './live/signal-filter-service';
