@@ -13,7 +13,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Candle, CandleStatus } from '../domain/candle';
+import { Candle, CandleCalculator, CandleStatus } from '../domain/candle';
 import { Timeframe, TimeframeValue } from '../domain/timeframe';
 import { SessionTime } from '../domain/session';
 import { Tick } from './angel-one-live-client';
@@ -91,6 +91,9 @@ export class TickAggregator extends EventEmitter {
     // Determine current candle boundaries
     const tf = Timeframe.from(timeframe);
     const candleCalculation = this.getCandleBoundaries(tickTimestamp, tf);
+    if (!candleCalculation) {
+      return; // Outside session - no candle to build
+    }
 
     // Check if we're in a new candle
     if (buffer.candleOpenTime && this.isNewCandle(buffer.candleOpenTime, candleCalculation.openTime)) {
@@ -128,66 +131,26 @@ export class TickAggregator extends EventEmitter {
   }
 
   /**
-   * Get candle open/close times based on timeframe
+   * Get candle open/close times based on timeframe.
+   *
+   * Delegates to the frozen Part 1 CandleCalculator, which is machine-timezone
+   * independent (utcToZonedTime + explicit UTC arithmetic). Its returned
+   * openTimeIST/closeTimeIST fields are true UTC instants despite their names.
+   *
+   * Returns null when the timestamp falls outside the 09:15-15:30 IST session.
    */
-  private getCandleBoundaries(timestamp: Date, timeframe: Timeframe): { openTime: Date; closeTime: Date } {
-    const timestampUTC = new Date(timestamp);
-
-    // Convert to IST for candle alignment
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-
-    const parts = formatter.formatToParts(timestamp);
-    const istHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-    const istMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-
-    // Session start: 09:15 IST = 03:45 UTC
-    const sessionStart = new Date(timestamp);
-    sessionStart.setUTCHours(3, 45, 0, 0);
-
-    // Calculate minutes since session start (in IST)
-    const istDate = new Date(timestamp);
-    const minutes = (istHour - 9) * 60 + (istMinute - 15);
-
-    let candleIndex = 0;
-    let minutesPerCandle = 5;
-
-    if (timeframe.value === TimeframeValue.FIFTEEN_MIN) {
-      minutesPerCandle = 15;
-    } else if (timeframe.value === TimeframeValue.SIXTY_MIN) {
-      minutesPerCandle = 60;
-    } else if (timeframe.value === TimeframeValue.DAILY) {
-      // Daily: entire session is one candle
-      return {
-        openTime: sessionStart,
-        closeTime: new Date(sessionStart.getTime() + 6 * 60 * 60 * 1000 + 15 * 60 * 1000), // 09:15-15:30
-      };
+  private getCandleBoundaries(
+    timestamp: Date,
+    timeframe: Timeframe,
+  ): { openTime: Date; closeTime: Date } | null {
+    const boundaries = CandleCalculator.calculateCandleBoundaries(timestamp, timeframe);
+    if (!boundaries) {
+      return null;
     }
 
-    candleIndex = Math.floor(minutes / minutesPerCandle);
-    const openMinutes = candleIndex * minutesPerCandle;
-    const closeMinutes = openMinutes + minutesPerCandle;
-
-    const openTimeIST = new Date(istDate);
-    openTimeIST.setHours(9 + Math.floor((15 + openMinutes) / 60), (15 + openMinutes) % 60, 0, 0);
-
-    // Convert back to UTC
-    const openTimeUTC = new Date(openTimeIST.toLocaleString('en-US', { timeZone: 'UTC' }));
-
-    const closeTimeIST = new Date(istDate);
-    closeTimeIST.setHours(9 + Math.floor((15 + closeMinutes) / 60), (15 + closeMinutes) % 60, 0, 0);
-    const closeTimeUTC = new Date(closeTimeIST.toLocaleString('en-US', { timeZone: 'UTC' }));
-
     return {
-      openTime: openTimeUTC,
-      closeTime: closeTimeUTC,
+      openTime: boundaries.openTimeIST,
+      closeTime: boundaries.closeTimeIST,
     };
   }
 

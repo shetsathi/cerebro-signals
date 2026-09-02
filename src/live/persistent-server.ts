@@ -14,6 +14,7 @@
  */
 
 import 'dotenv/config';
+import { pathToFileURL } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { Candle } from '../domain/candle';
 import { SupabaseCandleRepository } from '../persistence/supabase-candle-repository';
@@ -339,9 +340,14 @@ async function main() {
   }
 }
 
-// Run main function
-if (typeof window === 'undefined') {
-  // Running in Node.js (not browser)
+// Run main() only when this module is executed directly, never when imported.
+// src/index.ts re-exports PersistentServer, so an unconditional call here would
+// boot the whole live pipeline on any library import.
+// This is the ESM equivalent of CommonJS `require.main === module`.
+const isDirectRun =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
   main().catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);
