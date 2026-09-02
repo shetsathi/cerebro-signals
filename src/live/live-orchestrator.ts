@@ -39,6 +39,13 @@ export interface SignalOutput {
   knowledgeTimeUTC: Date;
   rulesetVersion: string;
   configHash: string;
+
+  // Traceability fields (Phase 1)
+  stopLevelId?: string;     // Structural level ID for stop loss
+  targetLevelId?: string;   // Structural level ID for target
+  setupType?: string;       // Setup type from Part 6
+  triggerType?: string;     // Trigger type from Part 7
+  regimeType?: string;      // Regime type at signal time
 }
 
 export interface LiveOrchestratorConfig {
@@ -167,6 +174,12 @@ export class LiveOrchestrator extends EventEmitter {
 
         for (const risk of risks) {
           if (risk.status === RiskStatus.VALID) {
+            // Find the corresponding trigger for traceability
+            const trigger = triggerSnapshot.getAllTriggers().find(t => t.triggerId === risk.triggerId);
+
+            // Find the corresponding setup for setup_type
+            const setup = setupSnapshot.getAllSetups().find(s => s.setupId === risk.setupId);
+
             const signal: SignalOutput = {
               decision,
               risk,
@@ -180,6 +193,13 @@ export class LiveOrchestrator extends EventEmitter {
               knowledgeTimeUTC: decisionSnapshot.knowledgeTimeUTC,
               rulesetVersion: decisionSnapshot.rulesetVersion,
               configHash: decisionSnapshot.configHash,
+
+              // Traceability fields
+              stopLevelId: risk.stopLevelId || undefined,
+              targetLevelId: risk.targetLevelId || undefined,
+              setupType: setup ? setup.setupType : undefined,
+              triggerType: trigger ? trigger.triggerType : undefined,
+              regimeType: regimeSnapshot.currentRegime ? regimeSnapshot.currentRegime : undefined,
             };
 
             this.emit('decision', signal);

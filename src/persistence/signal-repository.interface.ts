@@ -28,6 +28,13 @@ export interface SignalRecord {
   config_hash: string;
 
   status?: 'GENERATED' | 'ACTIVE' | 'CLOSED' | 'INVALIDATED';
+
+  // Traceability columns (Phase 1)
+  stop_level_id?: string;       // Links to structural level used as stop
+  target_level_id?: string;     // Links to structural level used as target
+  setup_type?: string;          // Setup qualification type (PULLBACK_LONG, etc.)
+  trigger_type?: string;        // Trigger confirmation type (BULLISH_BREAKOUT, etc.)
+  regime_type?: string;         // Market regime at signal time (UPTREND, DOWNTREND, RANGE)
 }
 
 export interface SavedSignal extends SignalRecord {

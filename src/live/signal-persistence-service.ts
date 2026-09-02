@@ -44,6 +44,13 @@ export class SignalPersistenceService {
         ruleset_version: signal.rulesetVersion,
         config_hash: signal.configHash,
         status: 'GENERATED',
+
+        // Traceability fields
+        stop_level_id: signal.stopLevelId,
+        target_level_id: signal.targetLevelId,
+        setup_type: signal.setupType,
+        trigger_type: signal.triggerType,
+        regime_type: signal.regimeType,
       };
 
       // Persist

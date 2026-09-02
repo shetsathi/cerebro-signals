@@ -28,6 +28,12 @@ interface SignalRow {
   config_hash: string;
   status: string;
   created_at: string;
+  // Traceability fields (Phase 1)
+  stop_level_id?: string;
+  target_level_id?: string;
+  setup_type?: string;
+  trigger_type?: string;
+  regime_type?: string;
 }
 
 export class SupabaseSignalRepository implements SignalRepository {
@@ -52,6 +58,12 @@ export class SupabaseSignalRepository implements SignalRepository {
       ruleset_version: signal.ruleset_version,
       config_hash: signal.config_hash,
       status: signal.status || 'GENERATED',
+      // Traceability fields
+      stop_level_id: signal.stop_level_id,
+      target_level_id: signal.target_level_id,
+      setup_type: signal.setup_type,
+      trigger_type: signal.trigger_type,
+      regime_type: signal.regime_type,
     };
 
     const { data, error } = await this.supabase
@@ -159,6 +171,12 @@ export class SupabaseSignalRepository implements SignalRepository {
       config_hash: row.config_hash,
       status: row.status as 'GENERATED' | 'ACTIVE' | 'CLOSED' | 'INVALIDATED',
       created_at: new Date(row.created_at),
+      // Traceability fields
+      stop_level_id: row.stop_level_id,
+      target_level_id: row.target_level_id,
+      setup_type: row.setup_type,
+      trigger_type: row.trigger_type,
+      regime_type: row.regime_type,
     };
   }
 }
