@@ -5,6 +5,13 @@
  * Loads credentials securely from Supabase Vault.
  * Emits 'tick' events with price data.
  *
+ * NOTE: Currently using realistic mock prices (smartapi-javascript is a stub).
+ * To enable REAL Angel One prices:
+ * 1. Get the official Angel One SmartAPI SDK from Angel One
+ * 2. Replace smartapi-javascript with real SDK
+ * 3. Implement login() and subscription methods
+ * 4. Remove mock tick generation below
+ *
  * CRITICAL: Never expose credentials in logs or errors.
  */
 
@@ -63,10 +70,23 @@ export class AngelOneLiveClient extends EventEmitter {
           subscribe: (symbol: string) => {
             console.log(`[MOCK] Subscribed to ${symbol}`);
             // Emit mock ticks for testing
+            // Use realistic base prices per symbol
+            const basePrices: Record<string, number> = {
+              'NIFTY50': 23500,
+              'BANKNIFTY': 47500,
+              'CRUDEOIL': 7200,
+              'SENSEX': 78000,
+            };
+            let lastPrice = basePrices[symbol] || 2500;
+
             setInterval(() => {
+              // Realistic price movement: ±0.5% per tick
+              const change = (Math.random() - 0.5) * lastPrice * 0.005;
+              lastPrice = Math.max(lastPrice + change, basePrices[symbol] * 0.95);
+
               this.emit('tick', {
                 symbol,
-                ltp: 2500 + Math.random() * 100,
+                ltp: Math.round(lastPrice * 100) / 100,
                 timestamp: new Date(),
               });
             }, 5000); // Mock tick every 5s
