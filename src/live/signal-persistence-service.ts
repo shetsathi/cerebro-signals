@@ -19,7 +19,7 @@ export class SignalPersistenceService {
   async persistSignal(signal: SignalOutput): Promise<string | null> {
     try {
       // Check for duplicate (same decision_id)
-      const existing = await this.signalRepository.getById(signal.decision.decisionId);
+      const existing = await this.signalRepository.getByDecisionId(signal.decision.decisionId);
       if (existing) {
         console.log(`Signal already persisted: ${signal.decision.decisionId}`);
         return null;

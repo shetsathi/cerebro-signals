@@ -10,8 +10,11 @@
 
 import { EventEmitter } from 'events';
 import { SupabaseClient } from '@supabase/supabase-js';
-import SmartApi from 'smartapi-javascript';
+import * as SmartApiModule from 'smartapi-javascript';
 import { totp } from 'otplib';
+
+// SmartAPI is exported as SmartApiModule.default.SmartAPI (capital API)
+const SmartApi = (SmartApiModule as any).default?.SmartAPI;
 
 export interface Tick {
   symbol: string;

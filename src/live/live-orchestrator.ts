@@ -69,6 +69,8 @@ export class LiveOrchestrator extends EventEmitter {
     const symbol = closedCandle.symbol;
 
     try {
+      console.log(`[${symbol}] Evaluate: ${allCandlesUpTo.length} candles, latest=${closedCandle.closeTimeUTC.toISOString()}`);
+
       // CRITICAL: All subsequent operations use asOfTimeUTC
       // No data from after this timestamp can be accessed
       // This enforces causality throughout the frozen layers
@@ -84,6 +86,10 @@ export class LiveOrchestrator extends EventEmitter {
         Timeframe.from(TimeframeValue.FIVE_MIN),
         this.config.structureConfig,
       );
+      console.log(
+        `[${symbol}] Part 3: ${structureSnapshot.getConfirmedSwings().length} swings, ` +
+        `structure=${structureSnapshot.getStructureType()}`
+      );
 
       // Part 4: Regime Engine
       const regimeSnapshot = RegimeEngine.getRegimeSnapshot(
@@ -92,6 +98,7 @@ export class LiveOrchestrator extends EventEmitter {
         symbol,
         this.config.structureConfig,
       );
+      console.log(`[${symbol}] Part 4: regime=${regimeSnapshot.currentRegime}`);
 
       // Part 5: Level & Location Engine
       const locationSnapshot = LevelEngine.getLocationSnapshot(
@@ -100,6 +107,10 @@ export class LiveOrchestrator extends EventEmitter {
         asOfTimeUTC,
         symbol,
         this.config.levelConfig,
+      );
+      console.log(
+        `[${symbol}] Part 5: ${locationSnapshot.getAllLevels().length} total levels, ` +
+        `${locationSnapshot.getAllEvents().length} events`
       );
 
       // Part 6: Setup Qualification Engine
@@ -110,6 +121,8 @@ export class LiveOrchestrator extends EventEmitter {
         symbol,
         this.config.setupConfig,
       );
+      const qualifiedSetups = setupSnapshot.getQualifiedSetups().length;
+      console.log(`[${symbol}] Part 6: ${setupSnapshot.getAllSetups().length} setups (${qualifiedSetups} qualified)`);
 
       // Part 7: Trigger Engine
       const triggerSnapshot = TriggerEngine.getTriggerSnapshot(
@@ -119,6 +132,7 @@ export class LiveOrchestrator extends EventEmitter {
         asOfTimeUTC,
         this.config.triggerConfig,
       );
+      console.log(`[${symbol}] Part 7: ${triggerSnapshot.getAllTriggers().length} triggers`);
 
       // Part 8: Risk Engine
       const riskSnapshot = RiskEngine.getRiskSnapshot(
@@ -127,6 +141,8 @@ export class LiveOrchestrator extends EventEmitter {
         asOfTimeUTC,
         this.config.riskConfig,
       );
+      const validRisks = riskSnapshot.getAllRisks().filter(r => r.status === 'VALID').length;
+      console.log(`[${symbol}] Part 8: ${riskSnapshot.getAllRisks().length} risks (${validRisks} VALID)`);
 
       // Part 9: Decision Engine
       const decisionSnapshot = DecisionEngine.getDecisionSnapshot(
@@ -138,6 +154,11 @@ export class LiveOrchestrator extends EventEmitter {
       // Extract actionable decisions (LONG/SHORT only, not WAIT)
       const longDecisions = decisionSnapshot.getLongDecisions();
       const shortDecisions = decisionSnapshot.getShortDecisions();
+
+      console.log(
+        `[${symbol}] Decision snapshot: ${longDecisions.length} LONG, ${shortDecisions.length} SHORT, ` +
+        `${riskSnapshot.getAllRisks().length} total risks`
+      );
 
       // Emit each actionable decision as a signal
       for (const decision of [...longDecisions, ...shortDecisions]) {

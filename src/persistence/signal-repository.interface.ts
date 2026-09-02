@@ -42,9 +42,14 @@ export interface SignalRepository {
   save(signal: SignalRecord): Promise<SavedSignal>;
 
   /**
-   * Retrieve signal by ID
+   * Retrieve signal by UUID ID
    */
   getById(signal_id: string): Promise<SavedSignal | null>;
+
+  /**
+   * Retrieve signal by decision ID (V1 Decision.decisionId)
+   */
+  getByDecisionId(decision_id: string): Promise<SavedSignal | null>;
 
   /**
    * Get signals by symbol

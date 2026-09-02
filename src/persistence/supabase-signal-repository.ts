@@ -82,6 +82,21 @@ export class SupabaseSignalRepository implements SignalRepository {
     return data ? this.rowToSignal(data as SignalRow) : null;
   }
 
+  async getByDecisionId(decision_id: string): Promise<SavedSignal | null> {
+    const { data, error } = await this.supabase
+      .from('signals')
+      .select('*')
+      .eq('decision_id', decision_id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 = no rows found
+      throw new Error(`Failed to get signal by decision_id: ${error.message}`);
+    }
+
+    return data ? this.rowToSignal(data as SignalRow) : null;
+  }
+
   async getBySymbol(symbol: string, limit: number = 50): Promise<SavedSignal[]> {
     const { data, error } = await this.supabase
       .from('signals')

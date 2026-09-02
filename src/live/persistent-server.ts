@@ -208,6 +208,7 @@ export class PersistentServer {
       const orchestrator = this.liveOrchestrators.get(symbol);
       if (orchestrator) {
         const allCandles = this.allCandles.get(symbol) || [];
+        console.log(`[SERVER] ${symbol} buffer has ${allCandles.length} candles (latest: ${allCandles.length > 0 ? allCandles[allCandles.length - 1].closeTimeUTC.toISOString() : 'none'})`);
         await orchestrator.evaluate(allCandles, candle);
       }
     });
@@ -218,16 +219,28 @@ export class PersistentServer {
    */
   private setupOrchestratorHandlers(orchestrator: LiveOrchestrator): void {
     orchestrator.on('decision', async (signal) => {
-      console.log(`Signal generated: ${signal.symbol} ${signal.action}`);
+      // Format signal for display
+      const action = signal.action === 'LONG' ? '🟢 BUY' : '🔴 SELL';
+      const rr = signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : '—';
+      console.log(
+        `\n${'='.repeat(60)}\n` +
+        `${action} ${signal.symbol}\n` +
+        `Entry:  ${signal.entryPrice.toFixed(2)}\n` +
+        `SL:     ${signal.stopPrice.toFixed(2)}\n` +
+        `Target: ${signal.targetPrice?.toFixed(2) || '—'}\n` +
+        `R:R:    ${rr}\n` +
+        `${'='.repeat(60)}\n`
+      );
 
       // 1. Persist signal
       if (this.signalPersistence) {
         try {
           const signalId = await this.signalPersistence.persistSignal(signal);
           if (!signalId) {
-            console.log('Signal already persisted (duplicate)');
+            console.log('✓ Signal already persisted (duplicate)');
             return;
           }
+          console.log(`✓ Signal persisted: ${signalId}`);
         } catch (error) {
           console.error('Failed to persist signal:', (error as Error).message);
           return;
