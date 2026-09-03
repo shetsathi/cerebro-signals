@@ -24,6 +24,7 @@ import { TickAggregator } from './tick-aggregator';
 import { LiveOrchestrator, LiveOrchestratorConfig } from './live-orchestrator';
 import { SignalPersistenceService } from './signal-persistence-service';
 import { TelegramService } from './telegram-service';
+import { TradeDetectionService } from './trade-detection-service';
 import { TimeframeValue } from '../domain/timeframe';
 import { StructureConfig } from '../domain/structure-config';
 
@@ -43,6 +44,7 @@ export class PersistentServer {
   private liveOrchestrators: Map<string, LiveOrchestrator> = new Map();
   private signalPersistence: SignalPersistenceService | null = null;
   private telegramService: TelegramService | null = null;
+  private tradeDetection: TradeDetectionService | null = null;
   private candleRepository: SupabaseCandleRepository | null = null;
   private allCandles: Map<string, Candle[]> = new Map(); // In-memory candle buffer
 
@@ -71,6 +73,11 @@ export class PersistentServer {
       // Initialize services
       console.log('🔧 Initializing services...');
       this.signalPersistence = new SignalPersistenceService(signalRepository);
+      this.tradeDetection = new TradeDetectionService(signalRepository);
+
+      // Load active signals for trade monitoring
+      console.log('📊 Loading active signals for trade monitoring...');
+      await this.tradeDetection.loadActiveSignals();
 
       if (this.config.telegramBotToken && this.config.telegramChatId) {
         console.log('📱 Initializing Telegram...');
@@ -210,6 +217,15 @@ export class PersistentServer {
         const allCandles = this.allCandles.get(symbol) || [];
         console.log(`[SERVER] ${symbol} buffer has ${allCandles.length} candles (latest: ${allCandles.length > 0 ? allCandles[allCandles.length - 1].closeTimeUTC.toISOString() : 'none'})`);
         await orchestrator.evaluate(allCandles, candle);
+      }
+
+      // 3. Monitor active signals for entry/exit hits (Phase 1 Trade Detection)
+      if (this.tradeDetection) {
+        try {
+          await this.tradeDetection.onCandle(candle);
+        } catch (error) {
+          console.error('Trade detection error:', (error as Error).message);
+        }
       }
     });
   }
