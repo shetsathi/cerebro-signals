@@ -72,10 +72,9 @@ export class RiskEngine {
     // Entry: Trigger confirmation close
     const entry = trigger.confirmationClose;
 
-    // Stop: Setup evidence source level price
-    const stop = trigger.referenceLevelPrice; // This IS the stop reference from Setup
-
-    const stopLevelId = trigger.referenceLevelId;
+    // Stop: Structural invalidation level from setup evidence
+    const stop = trigger.stopLevelPrice;
+    const stopLevelId = trigger.stopLevelId;
 
     // Causality check: trigger knowledge time must be before evaluation
     if (trigger.knowledgeTimeUTC > asOfTimeUTC) {

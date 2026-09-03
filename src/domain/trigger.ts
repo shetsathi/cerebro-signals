@@ -35,6 +35,8 @@ export class Trigger {
   readonly triggerType: TriggerType;
   readonly referenceLevelId: string;
   readonly referenceLevelPrice: number;
+  readonly stopLevelId: string;
+  readonly stopLevelPrice: number;
   readonly confirmationCloseUTC: Date;
   readonly confirmationClose: number;
   readonly knowledgeTimeUTC: Date;
@@ -51,6 +53,8 @@ export class Trigger {
     triggerType: TriggerType,
     referenceLevelId: string,
     referenceLevelPrice: number,
+    stopLevelId: string,
+    stopLevelPrice: number,
     confirmationCloseUTC: Date,
     confirmationClose: number,
     knowledgeTimeUTC: Date,
@@ -66,6 +70,8 @@ export class Trigger {
     this.triggerType = triggerType;
     this.referenceLevelId = referenceLevelId;
     this.referenceLevelPrice = referenceLevelPrice;
+    this.stopLevelId = stopLevelId;
+    this.stopLevelPrice = stopLevelPrice;
     this.confirmationCloseUTC = new Date(confirmationCloseUTC.getTime());
     this.confirmationClose = confirmationClose;
     this.knowledgeTimeUTC = new Date(knowledgeTimeUTC.getTime());

@@ -231,6 +231,7 @@ export class TriggerEngine {
   ): Trigger | null {
     // PULLBACK_LONG: Resistance broke bullish → became SUPPORT → interaction
     // Trigger: Price closes above the flipped SUPPORT (reclaim)
+    // Stop: The structural level from setup evidence (invalidation point)
 
     if (setup.direction !== 'LONG') return null; // Direction mismatch
     if (currentPolarity !== LevelPolarity.SUPPORT) return null; // Level must be acting as SUPPORT
@@ -246,6 +247,8 @@ export class TriggerEngine {
         TriggerType.BULLISH_RECLAIM,
         sourceLevel.levelId,
         sourceLevel.price,
+        setup.sourceLevelId,
+        setup.evidence.sourceLevelPrice,
         asOfTimeUTC,
         candleClose,
         asOfTimeUTC,
@@ -268,6 +271,7 @@ export class TriggerEngine {
   ): Trigger | null {
     // PULLBACK_SHORT: Support broke bearish → became RESISTANCE → interaction
     // Trigger: Price closes below the flipped RESISTANCE (reclaim)
+    // Stop: The structural level from setup evidence (invalidation point)
 
     if (setup.direction !== 'SHORT') return null; // Direction mismatch
     if (currentPolarity !== LevelPolarity.RESISTANCE) return null; // Level must be acting as RESISTANCE
@@ -283,6 +287,8 @@ export class TriggerEngine {
         TriggerType.BEARISH_RECLAIM,
         sourceLevel.levelId,
         sourceLevel.price,
+        setup.sourceLevelId,
+        setup.evidence.sourceLevelPrice,
         asOfTimeUTC,
         candleClose,
         asOfTimeUTC,
@@ -305,6 +311,7 @@ export class TriggerEngine {
   ): Trigger | null {
     // BREAKOUT_RETEST_LONG: Resistance broke bullish → became SUPPORT → retest
     // Trigger: Price moving above original resistance after retest (breakout/reversal)
+    // Stop: The retest level (structural support from setup evidence)
 
     if (setup.direction !== 'LONG') return null; // Direction mismatch
     if (currentPolarity !== LevelPolarity.SUPPORT) return null; // Level must be acting as SUPPORT after break
@@ -321,6 +328,8 @@ export class TriggerEngine {
         TriggerType.BULLISH_BREAKOUT,
         sourceLevel.levelId,
         sourceLevel.price,
+        setup.sourceLevelId,
+        setup.evidence.sourceLevelPrice,
         asOfTimeUTC,
         candleClose,
         asOfTimeUTC,
@@ -343,6 +352,7 @@ export class TriggerEngine {
   ): Trigger | null {
     // BREAKOUT_RETEST_SHORT: Support broke bearish → became RESISTANCE → retest
     // Trigger: Price moving below original support after retest (breakdown/reversal)
+    // Stop: The retest level (structural resistance from setup evidence)
 
     if (setup.direction !== 'SHORT') return null; // Direction mismatch
     if (currentPolarity !== LevelPolarity.RESISTANCE) return null; // Level must be acting as RESISTANCE after break
@@ -359,6 +369,8 @@ export class TriggerEngine {
         TriggerType.BEARISH_BREAKDOWN,
         sourceLevel.levelId,
         sourceLevel.price,
+        setup.sourceLevelId,
+        setup.evidence.sourceLevelPrice,
         asOfTimeUTC,
         candleClose,
         asOfTimeUTC,

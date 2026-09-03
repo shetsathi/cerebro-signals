@@ -26,7 +26,9 @@ describe('Part 8 — Risk Engine', () => {
       overrides.direction ?? 'LONG',
       overrides.triggerType ?? TriggerType.BULLISH_RECLAIM,
       overrides.referenceLevelId ?? 'level_1',
-      overrides.referenceLevelPrice ?? 2500, // Stop price
+      overrides.referenceLevelPrice ?? 2500, // Trigger reference level (qualification level)
+      overrides.stopLevelId ?? 'level_stop_1',
+      overrides.stopLevelPrice ?? 2450, // Stop price (structural invalidation)
       overrides.confirmationCloseUTC ?? baseTime,
       overrides.confirmationClose ?? 2505, // Entry price
       overrides.knowledgeTimeUTC ?? baseTime,
@@ -89,7 +91,10 @@ describe('Part 8 — Risk Engine', () => {
 
   describe('Entry Validation', () => {
     it('should use Trigger.confirmationClose as Entry', () => {
-      const trigger = createTrigger({ confirmationClose: 2505 });
+      const trigger = createTrigger({
+        confirmationClose: 2505,
+        stopLevelPrice: 2490, // Adjusted to achieve R:R >= 2.0
+      });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
         baseTime,
@@ -102,7 +107,7 @@ describe('Part 8 — Risk Engine', () => {
 
       const target = createLevel({
         levelId: 'level_target',
-        price: 2515,
+        price: 2535, // Target well above entry for good R:R
         polarity: LevelPolarity.RESISTANCE,
       });
       const locationSnapshot = createLocationSnapshot([target]);
@@ -122,7 +127,7 @@ describe('Part 8 — Risk Engine', () => {
   describe('Stop Validation', () => {
     it('should derive Stop from Trigger.referenceLevelPrice', () => {
       const trigger = createTrigger({
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
         confirmationClose: 2505,
       });
       const triggerSnapshot = new TriggerSnapshot(
@@ -156,7 +161,7 @@ describe('Part 8 — Risk Engine', () => {
     it('should output INVALID if LONG stop is not below Entry', () => {
       const trigger = createTrigger({
         direction: 'LONG',
-        referenceLevelPrice: 2510, // Stop ABOVE entry
+        stopLevelPrice: 2510, // Stop ABOVE entry
         confirmationClose: 2505,
       });
       const triggerSnapshot = new TriggerSnapshot(
@@ -186,7 +191,7 @@ describe('Part 8 — Risk Engine', () => {
     it('should output INVALID if SHORT stop is not above Entry', () => {
       const trigger = createTrigger({
         direction: 'SHORT',
-        referenceLevelPrice: 2495, // Stop BELOW entry
+        stopLevelPrice: 2495, // Stop BELOW entry
         confirmationClose: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
@@ -218,7 +223,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -258,7 +263,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'SHORT',
         confirmationClose: 2500,
-        referenceLevelPrice: 2505,
+        stopLevelPrice: 2505,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -298,7 +303,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -338,7 +343,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -380,7 +385,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -415,7 +420,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'SHORT',
         confirmationClose: 2500,
-        referenceLevelPrice: 2505,
+        stopLevelPrice: 2505,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -449,7 +454,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -480,7 +485,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -514,7 +519,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -548,7 +553,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -582,7 +587,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'SHORT',
         confirmationClose: 2500,
-        referenceLevelPrice: 2505,
+        stopLevelPrice: 2505,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -616,7 +621,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'SHORT',
         confirmationClose: 2500,
-        referenceLevelPrice: 2505,
+        stopLevelPrice: 2505,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -652,7 +657,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -688,7 +693,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -729,7 +734,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
       });
       const triggerSnapshot = new TriggerSnapshot(
         'RELIANCE',
@@ -767,7 +772,7 @@ describe('Part 8 — Risk Engine', () => {
       const trigger = createTrigger({
         direction: 'LONG',
         confirmationClose: 2505,
-        referenceLevelPrice: 2500,
+        stopLevelPrice: 2500,
         asOfTimeUTC: baseTime,
       });
       const triggerSnapshot = new TriggerSnapshot(
