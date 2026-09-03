@@ -37,8 +37,16 @@ export class AngelOneLiveClient extends EventEmitter {
 
   /**
    * Load credentials from Supabase Vault and connect to Angel One
+   * Returns a promise that resolves when connected or rejects after max retries
    */
   async connect(): Promise<void> {
+    return this.attemptConnection();
+  }
+
+  /**
+   * Attempt connection with retry logic
+   */
+  private async attemptConnection(): Promise<void> {
     try {
       const credentials = await this.loadCredentialsFromVault();
 
@@ -64,20 +72,32 @@ export class AngelOneLiveClient extends EventEmitter {
         console.log('✅ Connected to Angel One WebSocket');
         this.emit('connected');
       } catch (smartApiError) {
-        // Fail loudly - no mock mode fallback
-        console.error('❌ Real Angel One connection failed');
-        console.error('✓ Real data only mode - mock fallback disabled');
-        console.error('Required for live trading:');
-        console.error('  1. Valid Angel One credentials in .env');
-        console.error('  2. ANGEL_ONE_API_KEY');
-        console.error('  3. ANGEL_ONE_CLIENT_CODE');
-        console.error('  4. ANGEL_ONE_PASSWORD');
-        console.error('  5. ANGEL_ONE_TOTP_SECRET');
-        console.error('  6. Angel One API accessible from your network');
-        throw smartApiError;
+        console.error('❌ Angel One login error:', (smartApiError as Error).message);
+
+        // Check if we should retry
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          const delaySeconds = Math.pow(2, this.reconnectAttempts);
+          this.reconnectAttempts++;
+          console.log(`⏳ Retrying in ${delaySeconds}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+          return this.attemptConnection(); // Recursive retry
+        } else {
+          // Max retries exceeded
+          console.error('❌ Max connection attempts reached. Cannot connect to Angel One.');
+          console.error('✓ Real data only mode - no fallback available');
+          console.error('Verify your Angel One credentials:');
+          console.error('  1. ANGEL_ONE_API_KEY');
+          console.error('  2. ANGEL_ONE_CLIENT_CODE');
+          console.error('  3. ANGEL_ONE_PASSWORD');
+          console.error('  4. ANGEL_ONE_TOTP_SECRET');
+          console.error('  5. Angel One API is accessible from your network');
+          throw smartApiError;
+        }
       }
     } catch (error) {
-      this.handleConnectionError(error as Error);
+      throw error;
     }
   }
 
@@ -306,27 +326,6 @@ export class AngelOneLiveClient extends EventEmitter {
     }
   }
 
-  /**
-   * Handle connection errors with reconnect logic
-   */
-  private handleConnectionError(error: Error): void {
-    console.error('❌ Connection error:', error.message);
-
-    this.connected = false;
-    this.reconnectAttempts++;
-
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      const delaySeconds = Math.pow(2, this.reconnectAttempts); // Exponential backoff
-      console.log(`⏳ Reconnecting in ${delaySeconds}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-
-      setTimeout(() => {
-        this.connect().catch(err => console.error('Reconnection failed:', err));
-      }, delaySeconds * 1000);
-    } else {
-      console.error('❌ Max reconnection attempts reached. Check credentials and network.');
-      this.emit('error', error);
-    }
-  }
 
   /**
    * Disconnect from Angel One
