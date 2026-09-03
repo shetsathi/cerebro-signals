@@ -27,7 +27,7 @@ export interface SignalRecord {
   ruleset_version: string;
   config_hash: string;
 
-  status?: 'GENERATED' | 'ACTIVE' | 'CLOSED' | 'INVALIDATED';
+  status?: 'GENERATED' | 'ACTIVE' | 'OPEN' | 'CLOSED' | 'INVALIDATED';
 
   // Traceability columns (Phase 1)
   stop_level_id?: string;       // Links to structural level used as stop
@@ -72,6 +72,11 @@ export interface SignalRepository {
    * Get active signals (status = GENERATED or ACTIVE)
    */
   getActive(symbol: string): Promise<SavedSignal[]>;
+
+  /**
+   * Get signals by status (for trade detection)
+   */
+  getByStatus(statuses: string[]): Promise<SavedSignal[]>;
 
   /**
    * Update signal status (only status field, never touch prices)

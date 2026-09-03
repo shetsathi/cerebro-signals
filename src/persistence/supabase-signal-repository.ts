@@ -137,11 +137,25 @@ export class SupabaseSignalRepository implements SignalRepository {
       .from('signals')
       .select('*')
       .eq('symbol', symbol)
-      .in('status', ['GENERATED', 'ACTIVE'])
+      .in('status', ['GENERATED', 'ACTIVE', 'OPEN'])
       .order('evaluation_time_utc', { ascending: false });
 
     if (error) {
       throw new Error(`Failed to get active signals: ${error.message}`);
+    }
+
+    return (data || []).map(row => this.rowToSignal(row as SignalRow));
+  }
+
+  async getByStatus(statuses: string[]): Promise<SavedSignal[]> {
+    const { data, error } = await this.supabase
+      .from('signals')
+      .select('*')
+      .in('status', statuses)
+      .order('evaluation_time_utc', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to get signals by status: ${error.message}`);
     }
 
     return (data || []).map(row => this.rowToSignal(row as SignalRow));
@@ -177,7 +191,7 @@ export class SupabaseSignalRepository implements SignalRepository {
       knowledge_time_utc: new Date(row.knowledge_time_utc),
       ruleset_version: row.ruleset_version,
       config_hash: row.config_hash,
-      status: row.status as 'GENERATED' | 'ACTIVE' | 'CLOSED' | 'INVALIDATED',
+      status: row.status as 'GENERATED' | 'ACTIVE' | 'OPEN' | 'CLOSED' | 'INVALIDATED',
       created_at: new Date(row.created_at),
       // Traceability fields
       stop_level_id: row.stop_level_id,
