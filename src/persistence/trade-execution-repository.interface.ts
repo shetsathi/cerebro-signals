@@ -1,114 +1,78 @@
 /**
  * Trade Execution Repository Interface
  *
- * Abstraction for persistent trade lifecycle tracking.
- * Supports creation, status updates, and queries.
+ * Abstraction for persistent trade execution storage.
+ * Immutable: trades recorded at entry, updated only at exit.
  */
 
-import { TradeExecution, TradeStatus, ExitType } from '../domain/trade-execution';
+import { TradeExecution, TradeDirection, ExitType, ExecutionStatus } from '../domain/trade-execution';
 
-export interface TradeExecutionRecord {
-  tradeId?: string;
-  signalId: string;
-
-  entryPrice?: number;
-  entryTimeUTC?: Date;
-  entrySlippagePercent?: number;
-  entryBarIndex?: number;
-
-  exitPrice?: number;
-  exitTimeUTC?: Date;
-  exitType?: ExitType;
-  exitBarIndex?: number;
-
-  pnlAmount?: number;
-  pnlPercent?: number;
-  riskHitPercent?: number;
-
-  status?: TradeStatus;
-  durationMinutes?: number;
-  barsHeld?: number;
-
-  notes?: string;
-}
-
-export interface SavedTradeExecution extends TradeExecutionRecord {
-  tradeId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export interface TradeExecutionRecord extends TradeExecution {}
 
 export interface TradeExecutionRepository {
   /**
-   * Create a new trade execution (linked to signal)
-   */
-  create(trade: TradeExecutionRecord): Promise<SavedTradeExecution>;
-
-  /**
-   * Get trade by ID
-   */
-  getById(tradeId: string): Promise<SavedTradeExecution | null>;
-
-  /**
-   * Get trade by signal ID
-   */
-  getBySignalId(signalId: string): Promise<SavedTradeExecution | null>;
-
-  /**
-   * Get all trades for a symbol with optional status filter
-   */
-  getBySymbol(symbol: string, status?: TradeStatus, limit?: number): Promise<SavedTradeExecution[]>;
-
-  /**
-   * Get open trades (not closed)
-   */
-  getOpen(symbol?: string): Promise<SavedTradeExecution[]>;
-
-  /**
-   * Get closed trades (for analysis)
-   */
-  getClosed(symbol?: string, limit?: number): Promise<SavedTradeExecution[]>;
-
-  /**
-   * Update trade status
-   */
-  updateStatus(tradeId: string, status: TradeStatus): Promise<void>;
-
-  /**
-   * Record entry execution
+   * Record a trade entry (opens a new execution)
    */
   recordEntry(
-    tradeId: string,
-    entryPrice: number,
-    entryTimeUTC: Date,
-    entryBarIndex: number,
-  ): Promise<void>;
+    signal_id: string,
+    symbol: string,
+    direction: TradeDirection,
+    entry_price: number,
+    entry_time_utc: Date,
+    entry_bar_index: number,
+    stop_loss_price: number,
+    target_price: number | undefined,
+    evaluation_time_utc: Date,
+    knowledge_time_utc: Date
+  ): Promise<TradeExecution>;
 
   /**
-   * Record exit execution
+   * Record a trade exit (closes execution)
    */
   recordExit(
-    tradeId: string,
-    exitPrice: number,
-    exitTimeUTC: Date,
-    exitType: ExitType,
-    exitBarIndex: number,
-  ): Promise<void>;
+    execution_id: string,
+    exit_price: number,
+    exit_time_utc: Date,
+    exit_bar_index: number,
+    exit_type: ExitType,
+    points_pnl: number,
+    percent_pnl: number,
+    actual_risk_amount: number | undefined,
+    actual_reward_amount: number | undefined,
+    actual_risk_reward_ratio: number | undefined
+  ): Promise<TradeExecution>;
 
   /**
-   * Calculate and update PNL
+   * Get execution by ID
    */
-  updatePnL(
-    tradeId: string,
-    pnlAmount: number,
-    pnlPercent: number,
-    riskHitPercent: number,
-    durationMinutes: number,
-    barsHeld: number,
-  ): Promise<void>;
+  getById(execution_id: string): Promise<TradeExecution | null>;
 
   /**
-   * Update notes
+   * Get execution by signal ID
    */
-  updateNotes(tradeId: string, notes: string): Promise<void>;
+  getBySignalId(signal_id: string): Promise<TradeExecution | null>;
+
+  /**
+   * Get all executions for a symbol
+   */
+  getBySymbol(symbol: string, limit?: number): Promise<TradeExecution[]>;
+
+  /**
+   * Get open executions (waiting for exit)
+   */
+  getOpenExecutions(symbol?: string): Promise<TradeExecution[]>;
+
+  /**
+   * Get closed executions (completed)
+   */
+  getClosedExecutions(
+    symbol?: string,
+    limit?: number,
+    offset?: number
+  ): Promise<TradeExecution[]>;
+
+  /**
+   * Get executions by status
+   */
+  getByStatus(statuses: ExecutionStatus[]): Promise<TradeExecution[]>;
 }

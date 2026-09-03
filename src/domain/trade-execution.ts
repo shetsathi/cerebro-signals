@@ -1,140 +1,115 @@
 /**
- * Trade Execution Model
+ * TradeExecution — Immutable record of a single trade from entry to exit
  *
- * Represents the complete lifecycle of a trade from signal generation to exit.
- * Immutable: once a trade is closed (exit recorded), it cannot be modified.
+ * Lifecycle:
+ * 1. Entry: Price hits entry level → entry_price, entry_time_utc, status=OPEN
+ * 2. Exit: Price hits SL or Target → exit_price, exit_time_utc, exit_type, status=CLOSED
+ * 3. P&L: Calculated at exit time (immutable)
  */
 
-export enum TradeStatus {
-  PENDING = 'PENDING',                // Signal generated, awaiting entry
-  ENTRY_FILLED = 'ENTRY_FILLED',      // Entry price recorded
-  WAITING_EXIT = 'WAITING_EXIT',      // Waiting for SL or target to be hit
-  CLOSED = 'CLOSED',                  // Trade completed, PNL recorded
+export type TradeDirection = 'LONG' | 'SHORT';
+export type ExitType = 'STOP_LOSS' | 'TARGET' | 'CLOSED';
+export type ExecutionStatus = 'OPEN' | 'CLOSED';
+
+export interface TradeExecution {
+  // Primary key
+  execution_id: string;
+
+  // Foreign key
+  signal_id: string;
+
+  // Trade identification
+  symbol: string;
+  trade_direction: TradeDirection;
+
+  // Entry details (immutable, recorded at entry)
+  entry_price: number;
+  entry_time_utc: Date;
+  entry_bar_index: number; // Which candle confirmed entry
+
+  // Stop loss (from signal)
+  stop_loss_price: number;
+
+  // Target (from signal)
+  target_price?: number;
+
+  // Exit details (recorded when SL or Target hit)
+  exit_price?: number;
+  exit_time_utc?: Date;
+  exit_bar_index?: number;
+  exit_type?: ExitType; // STOP_LOSS | TARGET | CLOSED
+
+  // P&L metrics (calculated at exit)
+  points_pnl?: number; // Price difference
+  percent_pnl?: number; // Percentage change
+  rupees_pnl?: number; // Rupees (if lot size known)
+
+  // Risk metrics
+  risk_amount?: number; // |Entry - SL|
+  reward_amount?: number; // |Target - Entry|
+  actual_risk_amount?: number; // Actual loss if SL hit
+  actual_reward_amount?: number; // Actual gain if Target hit
+  risk_reward_ratio?: number; // Original R:R
+  actual_risk_reward_ratio?: number; // Actual R:R achieved
+
+  // Status
+  status: ExecutionStatus; // OPEN | CLOSED
+
+  // Traceability
+  evaluation_time_utc: Date;
+  knowledge_time_utc: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
-export enum ExitType {
-  SL_HIT = 'SL_HIT',                  // Stop loss was hit
-  TARGET_HIT = 'TARGET_HIT',          // Profit target was hit
-  MANUAL_EXIT = 'MANUAL_EXIT',        // Manually exited
-  TIMEOUT = 'TIMEOUT',                // Trade timed out (e.g., end of session)
+/**
+ * Calculate P&L from entry/exit prices
+ */
+export function calculatePnL(
+  direction: TradeDirection,
+  entryPrice: number,
+  exitPrice: number
+): { points: number; percent: number } {
+  if (direction === 'LONG') {
+    const points = exitPrice - entryPrice;
+    const percent = (points / entryPrice) * 100;
+    return { points, percent };
+  } else {
+    const points = entryPrice - exitPrice;
+    const percent = (points / entryPrice) * 100;
+    return { points, percent };
+  }
 }
 
-export class TradeExecution {
-  readonly tradeId: string;
-  readonly signalId: string;
+/**
+ * Determine if price hit entry level
+ */
+export function didPriceHitEntry(
+  entryPrice: number,
+  candleHigh: number,
+  candleLow: number
+): boolean {
+  return candleHigh >= entryPrice && candleLow <= entryPrice;
+}
 
-  // Entry
-  readonly entryPrice: number | null;
-  readonly entryTimeUTC: Date | null;
-  readonly entrySlippagePercent: number | null;
-  readonly entryBarIndex: number | null;
+/**
+ * Determine if price hit stop loss (exit)
+ */
+export function didPriceHitStopLoss(
+  slPrice: number,
+  candleHigh: number,
+  candleLow: number
+): boolean {
+  return candleHigh >= slPrice && candleLow <= slPrice;
+}
 
-  // Exit
-  readonly exitPrice: number | null;
-  readonly exitTimeUTC: Date | null;
-  readonly exitType: ExitType | null;
-  readonly exitBarIndex: number | null;
-
-  // PNL (calculated, immutable once exit recorded)
-  readonly pnlAmount: number | null;
-  readonly pnlPercent: number | null;
-  readonly riskHitPercent: number | null;
-
-  // Lifecycle
-  readonly status: TradeStatus;
-  readonly durationMinutes: number | null;
-  readonly barsHeld: number | null;
-
-  // Metadata
-  readonly notes: string | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-
-  constructor(
-    tradeId: string,
-    signalId: string,
-    entryPrice: number | null,
-    entryTimeUTC: Date | null,
-    entrySlippagePercent: number | null,
-    entryBarIndex: number | null,
-    exitPrice: number | null,
-    exitTimeUTC: Date | null,
-    exitType: ExitType | null,
-    exitBarIndex: number | null,
-    pnlAmount: number | null,
-    pnlPercent: number | null,
-    riskHitPercent: number | null,
-    status: TradeStatus,
-    durationMinutes: number | null,
-    barsHeld: number | null,
-    notes: string | null,
-    createdAt: Date,
-    updatedAt: Date,
-  ) {
-    this.tradeId = tradeId;
-    this.signalId = signalId;
-    this.entryPrice = entryPrice;
-    this.entryTimeUTC = entryTimeUTC;
-    this.entrySlippagePercent = entrySlippagePercent;
-    this.entryBarIndex = entryBarIndex;
-    this.exitPrice = exitPrice;
-    this.exitTimeUTC = exitTimeUTC;
-    this.exitType = exitType;
-    this.exitBarIndex = exitBarIndex;
-    this.pnlAmount = pnlAmount;
-    this.pnlPercent = pnlPercent;
-    this.riskHitPercent = riskHitPercent;
-    this.status = status;
-    this.durationMinutes = durationMinutes;
-    this.barsHeld = barsHeld;
-    this.notes = notes;
-    this.createdAt = new Date(createdAt.getTime());
-    this.updatedAt = new Date(updatedAt.getTime());
-    Object.freeze(this);
-  }
-
-  /**
-   * Calculate PNL percent from entry and exit prices
-   * LONG: (exit - entry) / entry * 100
-   * SHORT: (entry - exit) / entry * 100
-   */
-  static calculatePnlPercent(direction: 'LONG' | 'SHORT', entryPrice: number, exitPrice: number): number {
-    if (direction === 'LONG') {
-      return ((exitPrice - entryPrice) / entryPrice) * 100;
-    } else {
-      return ((entryPrice - exitPrice) / entryPrice) * 100;
-    }
-  }
-
-  /**
-   * Calculate slippage percent
-   */
-  static calculateSlippagePercent(signalEntryPrice: number, actualEntryPrice: number): number {
-    return ((actualEntryPrice - signalEntryPrice) / signalEntryPrice) * 100;
-  }
-
-  /**
-   * Calculate risk hit percent (how much of risk was used)
-   * risk_hit = distance_traveled / total_risk * 100
-   */
-  static calculateRiskHitPercent(
-    direction: 'LONG' | 'SHORT',
-    entryPrice: number,
-    stopPrice: number,
-    currentPrice: number,
-  ): number {
-    if (direction === 'LONG') {
-      const totalRisk = entryPrice - stopPrice;
-      const distanceTraveled = Math.max(0, entryPrice - currentPrice);
-      return (distanceTraveled / totalRisk) * 100;
-    } else {
-      const totalRisk = stopPrice - entryPrice;
-      const distanceTraveled = Math.max(0, currentPrice - entryPrice);
-      return (distanceTraveled / totalRisk) * 100;
-    }
-  }
-
-  toString(): string {
-    return `TradeExecution(${this.tradeId} status=${this.status} pnl=${this.pnlPercent}%)`;
-  }
+/**
+ * Determine if price hit target (exit)
+ */
+export function didPriceHitTarget(
+  targetPrice: number,
+  candleHigh: number,
+  candleLow: number
+): boolean {
+  return candleHigh >= targetPrice && candleLow <= targetPrice;
 }

@@ -1,35 +1,43 @@
-/**
+﻿/**
  * Supabase Trade Execution Repository
  *
- * Implements trade lifecycle tracking with full audit trail.
+ * Implements immutable trade execution persistence.
+ * Entry recorded on hit, exit recorded when SL/Target hit.
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from "@supabase/supabase-js";
 import {
   TradeExecutionRepository,
   TradeExecutionRecord,
-  SavedTradeExecution,
-} from './trade-execution-repository.interface';
-import { TradeExecution, TradeStatus, ExitType } from '../domain/trade-execution';
+} from "./trade-execution-repository.interface";
+import { TradeExecution, TradeDirection, ExitType, ExecutionStatus } from "../domain/trade-execution";
 
 interface TradeExecutionRow {
-  trade_id: string;
+  execution_id: string;
   signal_id: string;
-  entry_price?: number;
-  entry_time_utc?: string;
-  entry_slippage?: number;
-  entry_bar_index?: number;
+  symbol: string;
+  trade_direction: string;
+  entry_price: number;
+  entry_time_utc: string;
+  entry_bar_index: number;
+  stop_loss_price: number;
+  target_price?: number;
   exit_price?: number;
   exit_time_utc?: string;
-  exit_type?: string;
   exit_bar_index?: number;
-  pnl_amount?: number;
-  pnl_percent?: number;
-  risk_hit_percent?: number;
+  exit_type?: string;
+  points_pnl?: number;
+  percent_pnl?: number;
+  rupees_pnl?: number;
+  risk_amount?: number;
+  reward_amount?: number;
+  actual_risk_amount?: number;
+  actual_reward_amount?: number;
+  risk_reward_ratio?: number;
+  actual_risk_reward_ratio?: number;
   status: string;
-  duration_minutes?: number;
-  bars_held?: number;
-  notes?: string;
+  evaluation_time_utc: string;
+  knowledge_time_utc: string;
   created_at: string;
   updated_at: string;
 }
@@ -37,247 +45,210 @@ interface TradeExecutionRow {
 export class SupabaseTradeExecutionRepository implements TradeExecutionRepository {
   constructor(private supabase: SupabaseClient) {}
 
-  async create(trade: TradeExecutionRecord): Promise<SavedTradeExecution> {
-    const row = {
-      signal_id: trade.signalId,
-      entry_price: trade.entryPrice,
-      entry_time_utc: trade.entryTimeUTC?.toISOString(),
-      entry_slippage: trade.entrySlippagePercent,
-      entry_bar_index: trade.entryBarIndex,
-      exit_price: trade.exitPrice,
-      exit_time_utc: trade.exitTimeUTC?.toISOString(),
-      exit_type: trade.exitType,
-      exit_bar_index: trade.exitBarIndex,
-      pnl_amount: trade.pnlAmount,
-      pnl_percent: trade.pnlPercent,
-      risk_hit_percent: trade.riskHitPercent,
-      status: trade.status || 'PENDING',
-      duration_minutes: trade.durationMinutes,
-      bars_held: trade.barsHeld,
-      notes: trade.notes,
+  async recordEntry(
+    signal_id: string,
+    symbol: string,
+    direction: TradeDirection,
+    entry_price: number,
+    entry_time_utc: Date,
+    entry_bar_index: number,
+    stop_loss_price: number,
+    target_price: number | undefined,
+    evaluation_time_utc: Date,
+    knowledge_time_utc: Date
+  ): Promise<TradeExecution> {
+    const row: Partial<TradeExecutionRow> = {
+      signal_id,
+      symbol,
+      trade_direction: direction,
+      entry_price,
+      entry_time_utc: entry_time_utc.toISOString(),
+      entry_bar_index,
+      stop_loss_price,
+      target_price,
+      status: "OPEN",
+      evaluation_time_utc: evaluation_time_utc.toISOString(),
+      knowledge_time_utc: knowledge_time_utc.toISOString(),
     };
 
     const { data, error } = await this.supabase
-      .from('trade_executions')
+      .from("trade_executions")
       .insert([row])
       .select()
       .single();
 
     if (error) {
-      throw new Error(`Failed to create trade execution: ${error.message}`);
+      throw new Error(`Failed to record trade entry: ${error.message}`);
     }
 
-    return this.rowToTrade(data as TradeExecutionRow);
+    return this.rowToExecution(data as TradeExecutionRow);
   }
 
-  async getById(tradeId: string): Promise<SavedTradeExecution | null> {
+  async recordExit(
+    execution_id: string,
+    exit_price: number,
+    exit_time_utc: Date,
+    exit_bar_index: number,
+    exit_type: ExitType,
+    points_pnl: number,
+    percent_pnl: number,
+    actual_risk_amount: number | undefined,
+    actual_reward_amount: number | undefined,
+    actual_risk_reward_ratio: number | undefined
+  ): Promise<TradeExecution> {
     const { data, error } = await this.supabase
-      .from('trade_executions')
-      .select('*')
-      .eq('trade_id', tradeId)
+      .from("trade_executions")
+      .update({
+        exit_price,
+        exit_time_utc: exit_time_utc.toISOString(),
+        exit_bar_index,
+        exit_type,
+        points_pnl,
+        percent_pnl,
+        actual_risk_amount,
+        actual_reward_amount,
+        actual_risk_reward_ratio,
+        status: "CLOSED",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("execution_id", execution_id)
+      .select()
       .single();
 
-    if (error && error.code !== 'PGRST116') {
-      throw new Error(`Failed to get trade: ${error.message}`);
+    if (error) {
+      throw new Error(`Failed to record trade exit: ${error.message}`);
     }
 
-    return data ? this.rowToTrade(data as TradeExecutionRow) : null;
+    return this.rowToExecution(data as TradeExecutionRow);
   }
 
-  async getBySignalId(signalId: string): Promise<SavedTradeExecution | null> {
+  async getById(execution_id: string): Promise<TradeExecution | null> {
     const { data, error } = await this.supabase
-      .from('trade_executions')
-      .select('*')
-      .eq('signal_id', signalId)
+      .from("trade_executions")
+      .select("*")
+      .eq("execution_id", execution_id)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
-      throw new Error(`Failed to get trade by signal: ${error.message}`);
+    if (error && error.code !== "PGRST116") {
+      throw new Error(`Failed to get execution: ${error.message}`);
     }
 
-    return data ? this.rowToTrade(data as TradeExecutionRow) : null;
+    return data ? this.rowToExecution(data as TradeExecutionRow) : null;
   }
 
-  async getBySymbol(
-    symbol: string,
-    status?: TradeStatus,
+  async getBySignalId(signal_id: string): Promise<TradeExecution | null> {
+    const { data, error } = await this.supabase
+      .from("trade_executions")
+      .select("*")
+      .eq("signal_id", signal_id)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      throw new Error(`Failed to get execution by signal: ${error.message}`);
+    }
+
+    return data ? this.rowToExecution(data as TradeExecutionRow) : null;
+  }
+
+  async getBySymbol(symbol: string, limit: number = 50): Promise<TradeExecution[]> {
+    const { data, error } = await this.supabase
+      .from("trade_executions")
+      .select("*")
+      .eq("symbol", symbol)
+      .order("entry_time_utc", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Failed to get executions: ${error.message}`);
+    }
+
+    return (data || []).map(row => this.rowToExecution(row as TradeExecutionRow));
+  }
+
+  async getOpenExecutions(symbol?: string): Promise<TradeExecution[]> {
+    let query = this.supabase.from("trade_executions").select("*").eq("status", "OPEN");
+
+    if (symbol) {
+      query = query.eq("symbol", symbol);
+    }
+
+    const { data, error } = await query.order("entry_time_utc", { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to get open executions: ${error.message}`);
+    }
+
+    return (data || []).map(row => this.rowToExecution(row as TradeExecutionRow));
+  }
+
+  async getClosedExecutions(
+    symbol?: string,
     limit: number = 50,
-  ): Promise<SavedTradeExecution[]> {
-    // Note: Need to join with signals table to filter by symbol
+    offset: number = 0
+  ): Promise<TradeExecution[]> {
     let query = this.supabase
-      .from('trade_executions')
-      .select('*, signals(symbol)')
-      .eq('signals.symbol', symbol);
+      .from("trade_executions")
+      .select("*")
+      .eq("status", "CLOSED")
+      .order("exit_time_utc", { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    if (status) {
-      query = query.eq('status', status);
+    if (symbol) {
+      query = query.eq("symbol", symbol);
     }
-
-    query = query.order('created_at', { ascending: false }).limit(limit);
 
     const { data, error } = await query;
 
     if (error) {
-      throw new Error(`Failed to get trades: ${error.message}`);
+      throw new Error(`Failed to get closed executions: ${error.message}`);
     }
 
-    return (data || []).map((row: any) => this.rowToTrade(row as TradeExecutionRow));
+    return (data || []).map(row => this.rowToExecution(row as TradeExecutionRow));
   }
 
-  async getOpen(symbol?: string): Promise<SavedTradeExecution[]> {
-    let query = this.supabase
-      .from('trade_executions')
-      .select('*')
-      .in('status', ['PENDING', 'ENTRY_FILLED', 'WAITING_EXIT']);
-
-    if (symbol) {
-      query = query.eq('signals.symbol', symbol);
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
+  async getByStatus(statuses: ExecutionStatus[]): Promise<TradeExecution[]> {
+    const { data, error } = await this.supabase
+      .from("trade_executions")
+      .select("*")
+      .in("status", statuses)
+      .order("entry_time_utc", { ascending: false });
 
     if (error) {
-      throw new Error(`Failed to get open trades: ${error.message}`);
+      throw new Error(`Failed to get executions by status: ${error.message}`);
     }
 
-    return (data || []).map(row => this.rowToTrade(row as TradeExecutionRow));
+    return (data || []).map(row => this.rowToExecution(row as TradeExecutionRow));
   }
 
-  async getClosed(symbol?: string, limit: number = 50): Promise<SavedTradeExecution[]> {
-    let query = this.supabase
-      .from('trade_executions')
-      .select('*')
-      .eq('status', 'CLOSED');
-
-    if (symbol) {
-      query = query.eq('signals.symbol', symbol);
-    }
-
-    const { data, error } = await query
-      .order('updated_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      throw new Error(`Failed to get closed trades: ${error.message}`);
-    }
-
-    return (data || []).map(row => this.rowToTrade(row as TradeExecutionRow));
-  }
-
-  async updateStatus(tradeId: string, status: TradeStatus): Promise<void> {
-    const { error } = await this.supabase
-      .from('trade_executions')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('trade_id', tradeId);
-
-    if (error) {
-      throw new Error(`Failed to update trade status: ${error.message}`);
-    }
-  }
-
-  async recordEntry(
-    tradeId: string,
-    entryPrice: number,
-    entryTimeUTC: Date,
-    entryBarIndex: number,
-  ): Promise<void> {
-    const { error } = await this.supabase
-      .from('trade_executions')
-      .update({
-        entry_price: entryPrice,
-        entry_time_utc: entryTimeUTC.toISOString(),
-        entry_bar_index: entryBarIndex,
-        status: 'ENTRY_FILLED',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('trade_id', tradeId);
-
-    if (error) {
-      throw new Error(`Failed to record entry: ${error.message}`);
-    }
-  }
-
-  async recordExit(
-    tradeId: string,
-    exitPrice: number,
-    exitTimeUTC: Date,
-    exitType: ExitType,
-    exitBarIndex: number,
-  ): Promise<void> {
-    const { error } = await this.supabase
-      .from('trade_executions')
-      .update({
-        exit_price: exitPrice,
-        exit_time_utc: exitTimeUTC.toISOString(),
-        exit_type: exitType,
-        exit_bar_index: exitBarIndex,
-        status: 'CLOSED',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('trade_id', tradeId);
-
-    if (error) {
-      throw new Error(`Failed to record exit: ${error.message}`);
-    }
-  }
-
-  async updatePnL(
-    tradeId: string,
-    pnlAmount: number,
-    pnlPercent: number,
-    riskHitPercent: number,
-    durationMinutes: number,
-    barsHeld: number,
-  ): Promise<void> {
-    const { error } = await this.supabase
-      .from('trade_executions')
-      .update({
-        pnl_amount: pnlAmount,
-        pnl_percent: pnlPercent,
-        risk_hit_percent: riskHitPercent,
-        duration_minutes: durationMinutes,
-        bars_held: barsHeld,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('trade_id', tradeId);
-
-    if (error) {
-      throw new Error(`Failed to update PNL: ${error.message}`);
-    }
-  }
-
-  async updateNotes(tradeId: string, notes: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('trade_executions')
-      .update({ notes, updated_at: new Date().toISOString() })
-      .eq('trade_id', tradeId);
-
-    if (error) {
-      throw new Error(`Failed to update notes: ${error.message}`);
-    }
-  }
-
-  private rowToTrade(row: TradeExecutionRow): SavedTradeExecution {
+  private rowToExecution(row: TradeExecutionRow): TradeExecution {
     return {
-      tradeId: row.trade_id,
-      signalId: row.signal_id,
-      entryPrice: row.entry_price,
-      entryTimeUTC: row.entry_time_utc ? new Date(row.entry_time_utc) : undefined,
-      entrySlippagePercent: row.entry_slippage,
-      entryBarIndex: row.entry_bar_index,
-      exitPrice: row.exit_price,
-      exitTimeUTC: row.exit_time_utc ? new Date(row.exit_time_utc) : undefined,
-      exitType: row.exit_type as ExitType,
-      exitBarIndex: row.exit_bar_index,
-      pnlAmount: row.pnl_amount,
-      pnlPercent: row.pnl_percent,
-      riskHitPercent: row.risk_hit_percent,
-      status: row.status as TradeStatus,
-      durationMinutes: row.duration_minutes,
-      barsHeld: row.bars_held,
-      notes: row.notes,
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+      execution_id: row.execution_id,
+      signal_id: row.signal_id,
+      symbol: row.symbol,
+      trade_direction: row.trade_direction as TradeDirection,
+      entry_price: row.entry_price,
+      entry_time_utc: new Date(row.entry_time_utc),
+      entry_bar_index: row.entry_bar_index,
+      stop_loss_price: row.stop_loss_price,
+      target_price: row.target_price,
+      exit_price: row.exit_price,
+      exit_time_utc: row.exit_time_utc ? new Date(row.exit_time_utc) : undefined,
+      exit_bar_index: row.exit_bar_index,
+      exit_type: row.exit_type as ExitType | undefined,
+      points_pnl: row.points_pnl,
+      percent_pnl: row.percent_pnl,
+      rupees_pnl: row.rupees_pnl,
+      risk_amount: row.risk_amount,
+      reward_amount: row.reward_amount,
+      actual_risk_amount: row.actual_risk_amount,
+      actual_reward_amount: row.actual_reward_amount,
+      risk_reward_ratio: row.risk_reward_ratio,
+      actual_risk_reward_ratio: row.actual_risk_reward_ratio,
+      status: row.status as ExecutionStatus,
+      evaluation_time_utc: new Date(row.evaluation_time_utc),
+      knowledge_time_utc: new Date(row.knowledge_time_utc),
+      created_at: new Date(row.created_at),
+      updated_at: new Date(row.updated_at),
     };
   }
 }

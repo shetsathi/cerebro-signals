@@ -1,170 +1,164 @@
 /**
- * Performance Metrics Model
+ * PerformanceMetrics — Aggregated statistics from completed trades
  *
- * Aggregated trading statistics computed from TradeExecution records.
- * Immutable snapshot of performance for a given symbol and time period.
+ * Calculated from trade_executions table after each trade closes.
+ * Immutable snapshot; recalculated when new trades complete.
  */
 
-export interface SetupTypePerformance {
-  setupType: string;
-  wins: number;
-  losses: number;
-  totalTrades: number;
-  totalPnl: number;
-  avgPnl: number;
-  winRate: number;
-}
+export type PeriodType = 'ALL_TIME' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
-export interface TriggerTypePerformance {
-  triggerType: string;
-  wins: number;
-  losses: number;
-  totalTrades: number;
-  totalPnl: number;
-  avgPnl: number;
-  winRate: number;
-}
+export interface PerformanceMetrics {
+  // Primary key
+  metrics_id: string;
 
-export interface RegimeTypePerformance {
-  regimeType: string;
-  wins: number;
-  losses: number;
-  totalTrades: number;
-  totalPnl: number;
-  avgPnl: number;
-  winRate: number;
-}
-
-export class PerformanceMetrics {
-  readonly metricId: string;
-  readonly symbol: string;
-  readonly periodStart: Date;
-  readonly periodEnd: Date;
+  // Scope
+  symbol: string;
+  period_type: PeriodType;
+  period_start_utc?: Date;
+  period_end_utc?: Date;
 
   // Trade counts
-  readonly totalTrades: number;
-  readonly completedTrades: number;
-  readonly winningTrades: number;
-  readonly losingTrades: number;
-  readonly breakevenTrades: number;
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
 
-  // Rates and ratios
-  readonly winRate: number | null;           // (winning / completed) * 100
-  readonly profitFactor: number | null;      // gross_profit / gross_loss
-  readonly expectancy: number | null;        // avg_win * win_rate - avg_loss * loss_rate
+  // Win rate
+  win_rate_percent?: number; // (winning_trades / total_trades) × 100
 
-  // PNL metrics
-  readonly totalPnl: number;
-  readonly avgPnlPerTrade: number | null;
-  readonly largestWin: number | null;
-  readonly largestLoss: number | null;
-  readonly grossProfit: number;
-  readonly grossLoss: number;
+  // Risk/Reward metrics
+  avg_risk_reward_ratio?: number; // Average R:R
+  avg_actual_risk_reward_ratio?: number; // Average actual R:R achieved
 
-  // Time metrics
-  readonly avgTradeDurationMinutes: number | null;
-  readonly minTradeDurationMinutes: number | null;
-  readonly maxTradeDurationMinutes: number | null;
+  // P&L metrics (points)
+  total_points_pnl: number; // Sum of all points_pnl
+  avg_points_pnl?: number; // Average per trade
+  max_win_points?: number; // Largest win
+  max_loss_points?: number; // Largest loss (absolute)
 
-  // Risk metrics
-  readonly maxConsecutiveLosses: number;
-  readonly maxConsecutiveWins: number;
-  readonly largestLossStreak: number;
+  // P&L metrics (percentage)
+  total_percent_pnl?: number; // Sum of all percent_pnl
+  avg_percent_pnl?: number; // Average per trade
 
-  // Breakdown by type
-  readonly setupTypePerformance: Record<string, SetupTypePerformance>;
-  readonly triggerTypePerformance: Record<string, TriggerTypePerformance>;
-  readonly regimeTypePerformance: Record<string, RegimeTypePerformance>;
+  // Direction-specific metrics
+  long_trades?: number;
+  long_winning?: number;
+  long_win_rate_percent?: number;
+  long_avg_pnl?: number;
+
+  short_trades?: number;
+  short_winning?: number;
+  short_win_rate_percent?: number;
+  short_avg_pnl?: number;
+
+  // Consecutive trades
+  consecutive_wins?: number;
+  consecutive_losses?: number;
+  max_consecutive_wins?: number;
+  max_consecutive_losses?: number;
+
+  // Drawdown metrics
+  peak_points_pnl?: number; // Highest cumulative P&L
+  current_drawdown_points?: number; // From peak to current
+  max_drawdown_points?: number; // Worst drawdown seen
 
   // Metadata
-  readonly lastUpdatedAt: Date;
-  readonly createdAt: Date;
+  calculated_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
 
-  constructor(
-    metricId: string,
-    symbol: string,
-    periodStart: Date,
-    periodEnd: Date,
-    totalTrades: number,
-    completedTrades: number,
-    winningTrades: number,
-    losingTrades: number,
-    breakevenTrades: number,
-    winRate: number | null,
-    profitFactor: number | null,
-    expectancy: number | null,
-    totalPnl: number,
-    avgPnlPerTrade: number | null,
-    largestWin: number | null,
-    largestLoss: number | null,
-    grossProfit: number,
-    grossLoss: number,
-    avgTradeDurationMinutes: number | null,
-    minTradeDurationMinutes: number | null,
-    maxTradeDurationMinutes: number | null,
-    maxConsecutiveLosses: number,
-    maxConsecutiveWins: number,
-    largestLossStreak: number,
-    setupTypePerformance: Record<string, SetupTypePerformance>,
-    triggerTypePerformance: Record<string, TriggerTypePerformance>,
-    regimeTypePerformance: Record<string, RegimeTypePerformance>,
-    lastUpdatedAt: Date,
-    createdAt: Date,
-  ) {
-    this.metricId = metricId;
-    this.symbol = symbol;
-    this.periodStart = new Date(periodStart.getTime());
-    this.periodEnd = new Date(periodEnd.getTime());
-    this.totalTrades = totalTrades;
-    this.completedTrades = completedTrades;
-    this.winningTrades = winningTrades;
-    this.losingTrades = losingTrades;
-    this.breakevenTrades = breakevenTrades;
-    this.winRate = winRate;
-    this.profitFactor = profitFactor;
-    this.expectancy = expectancy;
-    this.totalPnl = totalPnl;
-    this.avgPnlPerTrade = avgPnlPerTrade;
-    this.largestWin = largestWin;
-    this.largestLoss = largestLoss;
-    this.grossProfit = grossProfit;
-    this.grossLoss = grossLoss;
-    this.avgTradeDurationMinutes = avgTradeDurationMinutes;
-    this.minTradeDurationMinutes = minTradeDurationMinutes;
-    this.maxTradeDurationMinutes = maxTradeDurationMinutes;
-    this.maxConsecutiveLosses = maxConsecutiveLosses;
-    this.maxConsecutiveWins = maxConsecutiveWins;
-    this.largestLossStreak = largestLossStreak;
-    this.setupTypePerformance = setupTypePerformance;
-    this.triggerTypePerformance = triggerTypePerformance;
-    this.regimeTypePerformance = regimeTypePerformance;
-    this.lastUpdatedAt = new Date(lastUpdatedAt.getTime());
-    this.createdAt = new Date(createdAt.getTime());
-    Object.freeze(this);
+/**
+ * Calculated performance summary (for dashboard display)
+ */
+export interface PerformanceSummary {
+  symbol: string;
+  totalTrades: number;
+  winRate: number; // 0-100
+  totalPnL: number;
+  avgPnL: number;
+  maxWin: number;
+  maxLoss: number;
+  profitFactor: number; // Total wins / Total losses
+  expectancy: number; // Average expected P&L per trade
+}
+
+/**
+ * Calculate win rate percentage
+ */
+export function calculateWinRate(winning: number, total: number): number {
+  if (total === 0) return 0;
+  return (winning / total) * 100;
+}
+
+/**
+ * Calculate profit factor (total wins / total losses)
+ */
+export function calculateProfitFactor(
+  totalPnL: number,
+  totalLosses: number
+): number {
+  if (totalLosses === 0) return totalPnL > 0 ? Infinity : 0;
+  return Math.abs(totalPnL / totalLosses);
+}
+
+/**
+ * Calculate expectancy (average expected P&L per trade)
+ */
+export function calculateExpectancy(
+  winRate: number,
+  avgWin: number,
+  avgLoss: number
+): number {
+  const winProbability = winRate / 100;
+  const lossProbability = 1 - winProbability;
+  return winProbability * avgWin + lossProbability * avgLoss;
+}
+
+/**
+ * Calculate max consecutive wins/losses from trade sequence
+ */
+export function calculateConsecutiveStreaks(
+  trades: Array<{ isWin: boolean }>
+): { maxConsecutiveWins: number; maxConsecutiveLosses: number } {
+  let maxConsecutiveWins = 0;
+  let maxConsecutiveLosses = 0;
+  let currentWinStreak = 0;
+  let currentLossStreak = 0;
+
+  for (const trade of trades) {
+    if (trade.isWin) {
+      currentWinStreak++;
+      currentLossStreak = 0;
+      maxConsecutiveWins = Math.max(maxConsecutiveWins, currentWinStreak);
+    } else {
+      currentLossStreak++;
+      currentWinStreak = 0;
+      maxConsecutiveLosses = Math.max(maxConsecutiveLosses, currentLossStreak);
+    }
   }
 
-  /**
-   * Is the system profitable?
-   */
-  isProfitable(): boolean {
-    return this.totalPnl > 0 && this.winRate !== null && this.winRate > 0;
+  return { maxConsecutiveWins, maxConsecutiveLosses };
+}
+
+/**
+ * Calculate drawdown from cumulative P&L sequence
+ */
+export function calculateDrawdown(
+  pnlSequence: number[]
+): { maxDrawdown: number; currentDrawdown: number; peak: number } {
+  let peak = 0;
+  let maxDrawdown = 0;
+  let cumulative = 0;
+
+  for (const pnl of pnlSequence) {
+    cumulative += pnl;
+    if (cumulative > peak) {
+      peak = cumulative;
+    }
+    const drawdown = peak - cumulative;
+    maxDrawdown = Math.max(maxDrawdown, drawdown);
   }
 
-  /**
-   * Is win rate acceptable (typically >= 40%)?
-   */
-  hasAcceptableWinRate(threshold: number = 40): boolean {
-    return this.winRate !== null && this.winRate >= threshold;
-  }
-
-  /**
-   * Is profit factor healthy (typically >= 2.0)?
-   */
-  hasHealthyProfitFactor(threshold: number = 2.0): boolean {
-    return this.profitFactor !== null && this.profitFactor >= threshold;
-  }
-
-  toString(): string {
-    return `PerformanceMetrics(${this.symbol} ${this.totalTrades} trades, pnl=${this.totalPnl.toFixed(2)}, wr=${this.winRate?.toFixed(1)}%)`;
-  }
+  const currentDrawdown = peak - cumulative;
+  return { maxDrawdown, currentDrawdown, peak };
 }

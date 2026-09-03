@@ -25,6 +25,8 @@ import { LiveOrchestrator, LiveOrchestratorConfig } from './live-orchestrator';
 import { SignalPersistenceService } from './signal-persistence-service';
 import { TelegramService } from './telegram-service';
 import { TradeDetectionService } from './trade-detection-service';
+import { TradeOutcomeService } from './trade-outcome-service';
+import { SupabaseTradeExecutionRepository } from '../persistence/supabase-trade-execution-repository';
 import { TimeframeValue } from '../domain/timeframe';
 import { StructureConfig } from '../domain/structure-config';
 
@@ -45,6 +47,8 @@ export class PersistentServer {
   private signalPersistence: SignalPersistenceService | null = null;
   private telegramService: TelegramService | null = null;
   private tradeDetection: TradeDetectionService | null = null;
+  private tradeExecution: SupabaseTradeExecutionRepository | null = null;
+  private tradeOutcome: TradeOutcomeService | null = null;
   private candleRepository: SupabaseCandleRepository | null = null;
   private allCandles: Map<string, Candle[]> = new Map(); // In-memory candle buffer
 
@@ -74,10 +78,15 @@ export class PersistentServer {
       console.log('🔧 Initializing services...');
       this.signalPersistence = new SignalPersistenceService(signalRepository);
       this.tradeDetection = new TradeDetectionService(signalRepository);
+      this.tradeExecution = new SupabaseTradeExecutionRepository(supabase);
+      this.tradeOutcome = new TradeOutcomeService(this.tradeDetection, this.tradeExecution);
 
       // Load active signals for trade monitoring
       console.log('📊 Loading active signals for trade monitoring...');
       await this.tradeDetection.loadActiveSignals();
+
+      // Wire up Phase 2 event listeners
+      this.setupTradeOutcomeHandlers();
 
       if (this.config.telegramBotToken && this.config.telegramChatId) {
         console.log('📱 Initializing Telegram...');
@@ -280,6 +289,52 @@ export class PersistentServer {
 
     orchestrator.on('error', (error) => {
       console.error('Orchestrator error:', error.message);
+    });
+  }
+
+  /**
+   * Set up Phase 2 trade outcome event handlers
+   */
+  private setupTradeOutcomeHandlers(): void {
+    if (!this.tradeDetection || !this.tradeOutcome) return;
+
+    // Listen for entry hits
+    this.tradeDetection.on('entryHit', async (event: any) => {
+      try {
+        await this.tradeOutcome!.recordEntryHit(
+          event.signal,
+          event.entryPrice,
+          event.entryTimeUTC,
+          event.entryBarIndex
+        );
+      } catch (error) {
+        console.error('Failed to record entry hit:', (error as Error).message);
+      }
+    });
+
+    // Listen for exit hits
+    this.tradeDetection.on('exitHit', async (event: any) => {
+      try {
+        // Get the execution first to record exit
+        const execution = await this.tradeExecution!.getBySignalId(event.signal.signal_id);
+        if (!execution) {
+          console.warn(`No execution found for signal ${event.signal.signal_id}`);
+          return;
+        }
+
+        await this.tradeOutcome!.recordExitHit(
+          execution.execution_id,
+          event.exitPrice,
+          event.exitTimeUTC,
+          event.exitBarIndex,
+          event.exitType
+        );
+
+        // Calculate performance metrics
+        await this.tradeOutcome!.calculateMetrics(event.signal.symbol);
+      } catch (error) {
+        console.error('Failed to record exit hit:', (error as Error).message);
+      }
     });
   }
 
