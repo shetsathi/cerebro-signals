@@ -238,12 +238,17 @@ export class AngelOneLiveClient extends EventEmitter {
       console.log('🔑 Generated TOTP code for authentication');
       console.log(`📋 Sending login request for client: ${credentials.clientCode}`);
 
-      // Call login API
-      const loginResult = await (this.smartApi as any).login({
-        clientcode: credentials.clientCode,
-        password: credentials.password,
-        totp: totpCode,
-      });
+      // Call login API with correct signature: login(password, totp, state?, options?)
+      const loginResult = await (this.smartApi as any).login(
+        credentials.password,
+        totpCode,
+        undefined, // state
+        {
+          clientLocalIP: '127.0.0.1',
+          clientPublicIP: '0.0.0.0',
+          macAddress: '00:00:00:00:00:00',
+        }
+      );
 
       // Validate login response
       if (!loginResult?.data?.jwtToken) {
@@ -253,8 +258,11 @@ export class AngelOneLiveClient extends EventEmitter {
       console.log('✅ Angel One login successful');
 
       // Update SmartAPI with authentication token
-      (this.smartApi as any).feed_token = loginResult.data.feedToken || loginResult.data.jwtToken;
-      (this.smartApi as any).auth_token = loginResult.data.jwtToken;
+      (this.smartApi as any).setTokens(
+        loginResult.data.jwtToken,
+        loginResult.data.refreshToken,
+        loginResult.data.feedToken
+      );
 
     } catch (error) {
       const errorMsg = (error as any)?.message || JSON.stringify(error);
