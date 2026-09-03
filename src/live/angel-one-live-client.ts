@@ -236,6 +236,7 @@ export class AngelOneLiveClient extends EventEmitter {
       // Generate 6-digit TOTP code from secret
       const totpCode = totp.generate(credentials.totpSecret);
       console.log('🔑 Generated TOTP code for authentication');
+      console.log(`📋 Sending login request for client: ${credentials.clientCode}`);
 
       // Call login API
       const loginResult = await (this.smartApi as any).login({
@@ -256,7 +257,18 @@ export class AngelOneLiveClient extends EventEmitter {
       (this.smartApi as any).auth_token = loginResult.data.jwtToken;
 
     } catch (error) {
-      console.error('❌ Angel One login error:', (error as Error).message);
+      const errorMsg = (error as any)?.message || JSON.stringify(error);
+      console.error('❌ Angel One login error:', errorMsg);
+
+      // Log full error object for debugging
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack?.split('\n')[0],
+        });
+      }
+
       throw error;
     }
   }
