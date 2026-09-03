@@ -64,56 +64,23 @@ export class AngelOneLiveClient extends EventEmitter {
         console.log('✅ Connected to Angel One WebSocket');
         this.emit('connected');
       } catch (smartApiError) {
-        // Fall back to mock mode if real Angel One fails
-        console.warn('⚠️  Real Angel One connection failed, using mock mode with realistic prices');
-        console.log('💡 To use real Angel One:');
-        console.log('   1. Verify credentials are valid for live Angel One');
-        console.log('   2. Check Angel One API is accessible');
-        console.log('   3. Ensure network allows WebSocket connections');
-
-        this.setupMockMode();
-        this.connected = true;
-        this.reconnectAttempts = 0;
-        this.emit('connected');
+        // Fail loudly - no mock mode fallback
+        console.error('❌ Real Angel One connection failed');
+        console.error('✓ Real data only mode - mock fallback disabled');
+        console.error('Required for live trading:');
+        console.error('  1. Valid Angel One credentials in .env');
+        console.error('  2. ANGEL_ONE_API_KEY');
+        console.error('  3. ANGEL_ONE_CLIENT_CODE');
+        console.error('  4. ANGEL_ONE_PASSWORD');
+        console.error('  5. ANGEL_ONE_TOTP_SECRET');
+        console.error('  6. Angel One API accessible from your network');
+        throw smartApiError;
       }
     } catch (error) {
       this.handleConnectionError(error as Error);
     }
   }
 
-  /**
-   * Set up mock mode with realistic prices
-   * Used when real Angel One connection fails
-   */
-  private setupMockMode(): void {
-    console.log('🎭 Mock Mode: Generating realistic prices for testing');
-
-    const basePrices: Record<string, number> = {
-      'NIFTY50': 23500,
-      'BANKNIFTY': 47500,
-      'CRUDEOIL': 7200,
-      'SENSEX': 78000,
-    };
-
-    this.smartApi = {
-      subscribe: (symbol: string) => {
-        console.log(`[MOCK] Subscribed to ${symbol}`);
-        const basePrice = basePrices[symbol] || 10000;
-        let lastPrice = basePrice;
-
-        setInterval(() => {
-          const change = (Math.random() - 0.5) * lastPrice * 0.005;
-          lastPrice = Math.max(lastPrice + change, basePrice * 0.95);
-
-          this.emit('tick', {
-            symbol,
-            ltp: Math.round(lastPrice * 100) / 100,
-            timestamp: new Date(),
-          });
-        }, 5000);
-      },
-    };
-  }
 
   /**
    * Set up WebSocket event handlers
