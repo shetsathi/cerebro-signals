@@ -1,203 +1,263 @@
 /**
- * Signal Conviction Calculator
+ * Conviction Calculator — Signal Quality Scoring
  *
- * Scores signals 0-100 based on multiple factors:
- * - Regime alignment (20 points)
- * - Setup type reliability (20 points)
- * - Trigger type reliability (20 points)
- * - Risk-Reward ratio (25 points)
- * - Risk status (15 points)
+ * Phase 3: Conviction Score (0-100) based on 5 factors:
+ * 1. Regime Conviction (20 points) — How confident is the market regime?
+ * 2. Setup Quality (20 points) — Pullback stronger than breakout?
+ * 3. Trigger Confirmation (20 points) — How well confirmed is the trigger?
+ * 4. Risk/Reward Ratio (20 points) — How favorable is the R:R?
+ * 5. Risk Validity (20 points) — How valid is the risk setup?
  *
- * Total: 100 points possible
+ * Score: 0-100
+ * Level: LOW (<40), MEDIUM (40-69), HIGH (70+)
  */
 
-import { RegimeType } from './regime-state';
-
-export enum ConvictionLevel {
-  LOW = 'LOW',           // 0-40: Informational only
-  MEDIUM = 'MEDIUM',     // 40-70: Consider carefully
-  HIGH = 'HIGH',         // 70-100: High confidence
-}
+export type ConvictionLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 export interface ConvictionFactors {
-  regime: number;        // 0-20: How bullish is regime?
-  setup: number;         // 0-20: How reliable is setup type?
-  trigger: number;       // 0-20: How reliable is trigger type?
-  ratio: number;         // 0-25: How good is R:R?
-  risk: number;          // 0-15: Is risk VALID?
+  regimeConviction: number;       // 0-20
+  setupQuality: number;            // 0-20
+  triggerConfirmation: number;     // 0-20
+  riskRewardRatio: number;         // 0-20
+  riskValidity: number;            // 0-20
+}
+
+export interface ConvictionResult {
+  score: number;
+  level: ConvictionLevel;
+  factors: ConvictionFactors;
 }
 
 export class ConvictionCalculator {
   /**
-   * Calculate conviction score for a signal
+   * Calculate conviction score from factors
+   */
+  static calculateScore(factors: ConvictionFactors): number {
+    const total =
+      factors.regimeConviction +
+      factors.setupQuality +
+      factors.triggerConfirmation +
+      factors.riskRewardRatio +
+      factors.riskValidity;
+
+    return Math.min(100, Math.max(0, total));
+  }
+
+  /**
+   * Determine conviction level from score
+   */
+  static getLevel(score: number): ConvictionLevel {
+    if (score >= 70) return 'HIGH';
+    if (score >= 40) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  /**
+   * Calculate full conviction result from signal components
    */
   static calculateConviction(
-    regimeType: string | null,
+    regime1D: string | null,
     setupType: string | null,
     triggerType: string | null,
-    riskRewardRatio: number | null,
-    riskStatus: string,
-  ): { score: number; level: ConvictionLevel; factors: ConvictionFactors } {
+    riskRewardRatio: number | undefined | null,
+    riskStatus: string
+  ): ConvictionResult {
     const factors: ConvictionFactors = {
-      regime: 0,
-      setup: 0,
-      trigger: 0,
-      ratio: 0,
-      risk: 0,
+      regimeConviction: regime1D ? this.calculateRegimeConviction(regime1D, '') : 6,
+      setupQuality: setupType ? this.calculateSetupQuality(setupType) : 6,
+      triggerConfirmation: triggerType ? this.calculateTriggerConfirmation(triggerType) : 6,
+      riskRewardRatio: this.calculateRiskRewardConviction(riskRewardRatio),
+      riskValidity: riskStatus === 'VALID' ? 16 : 4,
     };
 
-    // Factor 1: Regime Alignment (0-20 points)
-    // UPTREND/DOWNTREND highly aligned, RANGE less so
-    factors.regime = this.scoreRegime(regimeType);
-
-    // Factor 2: Setup Type Reliability (0-20 points)
-    // Some setup types historically more reliable
-    factors.setup = this.scoreSetup(setupType);
-
-    // Factor 3: Trigger Type Reliability (0-20 points)
-    // Some triggers more reliable than others
-    factors.trigger = this.scoreTrigger(triggerType);
-
-    // Factor 4: Risk-Reward Ratio (0-25 points)
-    // Higher R:R = more confident
-    factors.ratio = this.scoreRatio(riskRewardRatio);
-
-    // Factor 5: Risk Status (0-15 points)
-    // Only VALID risks are tradeable
-    factors.risk = riskStatus === 'VALID' ? 15 : 0;
-
-    // Total score
-    const score = Math.min(
-      100,
-      factors.regime + factors.setup + factors.trigger + factors.ratio + factors.risk,
-    );
-
-    // Determine level
-    const level = this.scoreToLevel(score);
+    const score = this.calculateScore(factors);
+    const level = this.getLevel(score);
 
     return { score, level, factors };
   }
 
   /**
-   * Regime scoring (0-20 points)
-   * UPTREND/DOWNTREND more aligned than RANGE
+   * Format conviction score for display
    */
-  private static scoreRegime(regime: string | null): number {
-    if (!regime) return 0;
-
-    switch (regime.toUpperCase()) {
-      case 'UPTREND':
-        return 20; // Perfect alignment for LONG
-      case 'DOWNTREND':
-        return 20; // Perfect alignment for SHORT
-      case 'RANGE':
-        return 10; // Moderate (choppy)
-      case 'INITIAL':
-        return 5; // Insufficient data
-      default:
-        return 0;
-    }
-  }
-
-  /**
-   * Setup type scoring (0-20 points)
-   * Based on historical reliability
-   */
-  private static scoreSetup(setup: string | null): number {
-    if (!setup) return 0;
-
-    // These weights are educated guesses - refine based on actual backtests
-    switch (setup.toUpperCase()) {
-      case 'PULLBACK_LONG':
-        return 18; // Highly reliable
-      case 'PULLBACK_SHORT':
-        return 18; // Highly reliable
-      case 'BREAKOUT_RETEST_LONG':
-        return 16; // Reliable with good context
-      case 'BREAKOUT_RETEST_SHORT':
-        return 16; // Reliable with good context
-      default:
-        return 0;
-    }
-  }
-
-  /**
-   * Trigger type scoring (0-20 points)
-   * Based on how clean the trigger confirmation is
-   */
-  private static scoreTrigger(trigger: string | null): number {
-    if (!trigger) return 0;
-
-    switch (trigger.toUpperCase()) {
-      case 'BULLISH_RECLAIM':
-        return 19; // Very clean confirmation
-      case 'BEARISH_RECLAIM':
-        return 19; // Very clean confirmation
-      case 'BULLISH_BREAKOUT':
-        return 17; // Good but can be faked
-      case 'BEARISH_BREAKDOWN':
-        return 17; // Good but can be faked
-      case 'BULLISH_REVERSAL':
-        return 12; // Speculative
-      case 'BEARISH_REVERSAL':
-        return 12; // Speculative
-      default:
-        return 0;
-    }
-  }
-
-  /**
-   * Risk-Reward ratio scoring (0-25 points)
-   * Better ratio = more confident
-   */
-  private static scoreRatio(ratio: number | null): number {
-    if (!ratio || ratio <= 0) return 0;
-
-    // Scoring curve: diminishing returns at higher ratios
-    if (ratio >= 3.0) return 25; // Excellent
-    if (ratio >= 2.5) return 22; // Very good
-    if (ratio >= 2.0) return 18; // Good (minimum acceptable)
-    if (ratio >= 1.5) return 12; // Moderate
-    if (ratio >= 1.0) return 6; // Poor
-    return 0; // Risk > reward
-  }
-
-  /**
-   * Convert score to conviction level
-   */
-  private static scoreToLevel(score: number): ConvictionLevel {
-    if (score >= 70) return ConvictionLevel.HIGH;
-    if (score >= 40) return ConvictionLevel.MEDIUM;
-    return ConvictionLevel.LOW;
-  }
-
-  /**
-   * Should this signal trigger a Telegram alert?
-   * Only HIGH conviction signals by default
-   */
-  static shouldAlert(convictionLevel: ConvictionLevel): boolean {
-    return convictionLevel === ConvictionLevel.HIGH;
+  static formatScore(score: number, level: ConvictionLevel): string {
+    const icon = level === 'HIGH' ? '🟢' : level === 'MEDIUM' ? '🟡' : '🔴';
+    return `${icon} ${score.toFixed(0)}/100 (${level})`;
   }
 
   /**
    * Format conviction factors for display
    */
   static formatFactors(factors: ConvictionFactors): string {
-    return [
-      `regime=${factors.regime}`,
-      `setup=${factors.setup}`,
-      `trigger=${factors.trigger}`,
-      `ratio=${factors.ratio}`,
-      `risk=${factors.risk}`,
-    ].join(' + ');
+    return `R${factors.regimeConviction}|S${factors.setupQuality}|T${factors.triggerConfirmation}|RR${factors.riskRewardRatio}|V${factors.riskValidity}`;
   }
 
   /**
-   * Format score for logging
+   * Calculate regime conviction (0-20)
+   * HIGH conviction: 1D + 60m both UPTREND/DOWNTREND (15-20 pts)
+   * MEDIUM conviction: Mixed timeframes (8-14 pts)
+   * LOW conviction: RANGE or INITIAL (0-7 pts)
    */
-  static formatScore(score: number, level: ConvictionLevel): string {
-    const emoji =
-      level === ConvictionLevel.HIGH ? '🟢' : level === ConvictionLevel.MEDIUM ? '🟡' : '🔴';
-    return `${emoji} ${score}/100 (${level})`;
+  static calculateRegimeConviction(regime1D: string, regime60m: string): number {
+    // Both timeframes aligned
+    if (
+      (regime1D === 'UPTREND' && regime60m === 'UPTREND') ||
+      (regime1D === 'DOWNTREND' && regime60m === 'DOWNTREND')
+    ) {
+      return 18;
+    }
+
+    // One aligned, one neutral
+    if (
+      (regime1D === 'UPTREND' || regime1D === 'DOWNTREND') &&
+      regime60m === 'RANGE'
+    ) {
+      return 12;
+    }
+
+    // Range at 1D
+    if (regime1D === 'RANGE') {
+      return 6;
+    }
+
+    // Initial
+    return 2;
+  }
+
+  /**
+   * Calculate setup quality (0-20)
+   * PULLBACK: 15-20 (lower risk, higher probability)
+   * BREAKOUT_RETEST: 10-14 (moderate quality)
+   * Other: 5-9
+   */
+  static calculateSetupQuality(setupType: string | undefined): number {
+    if (setupType?.includes('PULLBACK')) {
+      return 18;
+    }
+    if (setupType?.includes('BREAKOUT_RETEST')) {
+      return 12;
+    }
+    return 6;
+  }
+
+  /**
+   * Calculate trigger confirmation (0-20)
+   * Well-confirmed triggers (close beyond level by 0.5%+): 16-20
+   * Moderate confirmation: 10-15
+   * Weak confirmation: 5-9
+   */
+  static calculateTriggerConfirmation(
+    triggerType: string | undefined,
+    confirmationStrength: number = 0.5
+  ): number {
+    if (!triggerType) {
+      return 6;
+    }
+
+    // BULLISH/BEARISH_BREAKOUT stronger confirmation
+    if (
+      triggerType.includes('BULLISH_BREAKOUT') ||
+      triggerType.includes('BEARISH_BREAKDOWN')
+    ) {
+      return confirmationStrength >= 0.5 ? 18 : 12;
+    }
+
+    // RECLAIM triggers
+    if (
+      triggerType.includes('BULLISH_RECLAIM') ||
+      triggerType.includes('BEARISH_RECLAIM')
+    ) {
+      return confirmationStrength >= 0.3 ? 16 : 10;
+    }
+
+    return 8;
+  }
+
+  /**
+   * Calculate R:R conviction (0-20)
+   * R:R >= 3.0: 18-20 (excellent)
+   * R:R 2.0-2.99: 14-17 (good)
+   * R:R 1.5-1.99: 10-13 (acceptable)
+   * R:R < 1.5: 0-9 (poor, risky)
+   */
+  static calculateRiskRewardConviction(riskRewardRatio: number | undefined | null): number {
+    if (!riskRewardRatio || riskRewardRatio <= 0) {
+      return 4;
+    }
+
+    if (riskRewardRatio >= 3.0) {
+      return 19;
+    }
+    if (riskRewardRatio >= 2.0) {
+      return 15;
+    }
+    if (riskRewardRatio >= 1.5) {
+      return 11;
+    }
+    if (riskRewardRatio >= 1.0) {
+      return 7;
+    }
+
+    return 3;
+  }
+
+  /**
+   * Calculate risk validity (0-20)
+   * Valid risk (stop < entry for LONG, stop > entry for SHORT): 16-20
+   * Borderline (stop within 0.2% of entry): 8-15
+   * Invalid (stop on wrong side): 0-7
+   */
+  static calculateRiskValidity(
+    direction: 'LONG' | 'SHORT',
+    entryPrice: number,
+    stopPrice: number,
+    targetPrice?: number
+  ): number {
+    if (direction === 'LONG') {
+      // Stop should be below entry
+      if (stopPrice < entryPrice) {
+        const riskPercent = ((entryPrice - stopPrice) / entryPrice) * 100;
+        if (riskPercent >= 1.0) return 19; // Good risk
+        if (riskPercent >= 0.5) return 15; // Acceptable
+        return 10; // Tight stop
+      }
+      return 2; // Invalid
+    } else {
+      // SHORT: stop should be above entry
+      if (stopPrice > entryPrice) {
+        const riskPercent = ((stopPrice - entryPrice) / entryPrice) * 100;
+        if (riskPercent >= 1.0) return 19;
+        if (riskPercent >= 0.5) return 15;
+        return 10;
+      }
+      return 2; // Invalid
+    }
+  }
+
+  /**
+   * Build factors from signal components
+   */
+  static buildFactors(
+    regime1D: string,
+    regime60m: string,
+    setupType: string | undefined,
+    triggerType: string | undefined,
+    riskRewardRatio: number | undefined,
+    direction: 'LONG' | 'SHORT',
+    entryPrice: number,
+    stopPrice: number,
+    targetPrice?: number
+  ): ConvictionFactors {
+    return {
+      regimeConviction: this.calculateRegimeConviction(regime1D, regime60m),
+      setupQuality: this.calculateSetupQuality(setupType),
+      triggerConfirmation: this.calculateTriggerConfirmation(triggerType),
+      riskRewardRatio: this.calculateRiskRewardConviction(riskRewardRatio),
+      riskValidity: this.calculateRiskValidity(
+        direction,
+        entryPrice,
+        stopPrice,
+        targetPrice
+      ),
+    };
   }
 }
